@@ -1,6 +1,26 @@
-node_modules
-.next
-.env
-.env.local
-.DS_Store
-Thumbs.db
+@'
+import { NextResponse } from "next/server";
+
+export async function GET() {
+  try {
+    const inputMint = "So11111111111111111111111111111111111111112";
+    const outputMint = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
+
+    const res = await fetch(
+      `https://api.jup.ag/v6/quote?inputMint=${inputMint}&outputMint=${outputMint}&amount=100000000`,
+      { cache: "no-store" }
+    );
+
+    const json = await res.json();
+
+    return NextResponse.json({
+      count: json?.data?.length ?? 0,
+      routes: (json?.data ?? []).map((r) =>
+        r.marketInfos?.map((m) => m.label).join(" → ")
+      ),
+    });
+  } catch (e) {
+    return NextResponse.json({ error: String(e) }, { status: 500 });
+  }
+}
+'@ | Set-Content route.ts
