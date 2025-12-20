@@ -1,14 +1,19 @@
-'use client'
-import { useEffect, useState } from 'react';
+"use client";
 
-export function usePulse(interval=2000){
-  const [data,setData]=useState<any>(null);
-  useEffect(()=>{
-    const t=setInterval(async()=>{
-      const r=await fetch('/api/pulse');
-      setData(await r.json());
-    },interval);
-    return ()=>clearInterval(t);
-  },[interval]);
-  return data;
+import { useEffect, useState } from "react";
+
+export function usePulse() {
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/pulse")
+      .then((res) => res.json())
+      .then((json) => {
+        setData(json);
+        setLoading(false);
+      });
+  }, []);
+
+  return { data, loading };
 }
