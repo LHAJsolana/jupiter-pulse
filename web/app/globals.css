@@ -24,3 +24,13 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+:root {
+  --bg: #0b0b0e;
+  --card: #111114;
+  --text: #ededed;
+  --muted: #9ca3af;
+
+  --green: #14f195;
+  --purple: #9945ff;
+  --yellow: #facc15;
+}

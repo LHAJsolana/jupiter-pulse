@@ -1,13 +1,46 @@
-import { NextResponse } from 'next/server'
-import axios from 'axios'
+import { NextResponse } from "next/server";
+
+export const runtime = "nodejs"; // ⬅️ IMPORTANT
+
+const JUPITER_URL =
+  "https://price.jup.ag/v6/price?ids=SOL,JUP,BONK,WIF&vsToken=USDC";
 
 export async function GET() {
-  const { data } = await axios.get(
-    'https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd'
-  )
+  try {
+    const res = await fetch(JUPITER_URL, {
+      method: "GET",
+      headers: {
+        "accept": "application/json",
+        "user-agent": "jupiter-pulse/1.0",
+      },
+      cache: "no-store",
+    });
 
-  return NextResponse.json({
-    pair: 'SOL/USDC',
-    price: data.solana.usd
-  })
+    if (!res.ok) {
+      throw new Error(`Jupiter HTTP ${res.status}`);
+    }
+
+    const json = await res.json();
+
+    const prices = {
+      SOL: json?.data?.SOL?.price ?? null,
+      JUP: json?.data?.JUP?.price ?? null,
+      BONK: json?.data?.BONK?.price ?? null,
+      WIF: json?.data?.WIF?.price ?? null,
+    };
+
+    return NextResponse.json({
+      status: "ok",
+      timestamp: Date.now(),
+      prices,
+    });
+  } catch (err: any) {
+    return NextResponse.json(
+      {
+        status: "error",
+        message: err.message || "Failed to fetch Jupiter prices",
+      },
+      { status: 500 }
+    );
+  }
 }
