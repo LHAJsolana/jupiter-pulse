@@ -80,9 +80,9 @@ Additional Solana-native signals
 
 🧩 Powered By
 
-Jupiter — pricing & routing infrastructure
+Jupiter :pricing & routing infrastructure
 
-Solana — execution & ecosystem
+Solana : execution & ecosystem
 
 👤 Author
 
