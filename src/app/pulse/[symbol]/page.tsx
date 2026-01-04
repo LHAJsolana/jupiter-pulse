@@ -1,10 +1,8 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import Link from "next/link";
 import { Line } from "react-chartjs-2";
-
 import {
   Chart as ChartJS,
   LineElement,
@@ -15,24 +13,40 @@ import {
   Legend,
 } from "chart.js";
 
-ChartJS.register(LineElement, CategoryScale, LinearScale, PointElement, Tooltip, Legend);
+ChartJS.register(
+  LineElement,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  Tooltip,
+  Legend
+);
 
 export default function SymbolPage() {
-  const { symbol } = useParams() as { symbol: string };
+  const params = useParams<{ symbol: string }>();
   const router = useRouter();
 
-  const [history, setHistory] = useState<any[] | null>(null);
+  const symbol = params?.symbol?.toUpperCase();
+
+  const [history, setHistory] = useState<number[][] | null>(null);
   const [days, setDays] = useState(7);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   async function loadHistory(d = days) {
+    if (!symbol) return;
+
     try {
       setLoading(true);
-      const res = await fetch(`/api/prices/history/${symbol}?days=${d}`, { cache: "no-store" });
+
+      const res = await fetch(
+        `/api/prices/history/${symbol}?days=${d}`,
+        { cache: "no-store" }
+      );
+
       const data = await res.json();
 
-      if (!data?.prices) {
+      if (!data?.prices || data.prices.length === 0) {
         setError("No price history data available.");
         setLoading(false);
         return;
@@ -40,67 +54,102 @@ export default function SymbolPage() {
 
       setHistory(data.prices);
       setError(null);
-      setLoading(false);
 
-      // ⭐ Save last chart history so dashboard can reuse it
-      localStorage.setItem(`history-${symbol}`, JSON.stringify(data.prices));
-
+      // cache for reuse
+      localStorage.setItem(
+        `history-${symbol}`,
+        JSON.stringify(data.prices)
+      );
     } catch (err) {
-      console.log("History fetch error:", err);
+      console.error("History fetch error:", err);
       setError("Unable to load chart");
+    } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
     loadHistory();
-    const interval = setInterval(() => loadHistory(days), 25000); // auto refresh
+    const interval = setInterval(() => loadHistory(days), 25000);
     return () => clearInterval(interval);
   }, [days, symbol]);
 
-  if (error) return (
-    <div className="text-red-400 text-center pt-40">
-      ❌ {error}
-      <br />
-      <button
-        onClick={() => router.back()}
-        className="mt-4 underline"
-      >
-        Go Back
-      </button>
-    </div>
-  );
+  if (error) {
+    return (
+      <div className="text-red-400 text-center pt-40">
+        ❌ {error}
+        <br />
+        <button onClick={() => router.back()} className="mt-4 underline">
+          Go Back
+        </button>
+      </div>
+    );
+  }
 
-  if (!history || loading) return (
-    <div className="text-gray-300 text-center pt-40 text-xl animate-pulse">
-      Loading {symbol.toUpperCase()} chart...
-    </div>
-  );
+  if (!history || loading || !symbol) {
+    return (
+      <div className="text-gray-300 text-center pt-40 text-xl animate-pulse">
+        Loading {symbol ?? ""} chart...
+      </div>
+    );
+  }
 
   const chartData = {
-    labels: history.map((p: any) => new Date(p[0]).toLocaleDateString()),
-    datasets: [{
-      label: `${symbol.toUpperCase()} Price`,
-      data: history.map((p: any) => p[1]),
-      borderColor: "var(--accent)",
-      borderWidth: 2,
-      tension: 0.4,
-      pointRadius: 0,
-      fill: true,
-      backgroundColor: (ctx: any) => {
-        const { ctx: c, chartArea } = ctx.chart;
-        if (!chartArea) return null;
-        const gradient = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-        gradient.addColorStop(0, "var(--accent-transparent)");
-        gradient.addColorStop(1, "transparent");
-        return gradient;
-      }
-    }]
+    labels: history.map((p) =>
+      new Date(p[0]).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+      })
+    ),
+    datasets: [
+      {
+        label: `${symbol} Price`,
+        data: history.map((p) => p[1]),
+        borderColor: "#00FFA3",
+        borderWidth: 2,
+        tension: 0.4,
+        pointRadius: 0,
+        fill: true,
+        backgroundColor: (context: any) => {
+          const { ctx, chartArea } = context.chart;
+          if (!chartArea) return null;
+
+          const gradient = ctx.createLinearGradient(
+            0,
+            chartArea.top,
+            0,
+            chartArea.bottom
+          );
+
+          gradient.addColorStop(0, "rgba(0, 255, 163, 0.35)");
+          gradient.addColorStop(1, "rgba(0, 255, 163, 0)");
+
+          return gradient;
+        },
+      },
+    ],
+  };
+
+  const options = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: { intersect: false },
+    },
+    scales: {
+      x: { grid: { display: false } },
+      y: {
+        grid: { color: "rgba(255,255,255,0.05)" },
+        ticks: {
+          callback: (v: number) => `$${v}`,
+        },
+      },
+    },
   };
 
   return (
     <div className="text-white px-6 py-12">
-
       <div className="flex justify-between items-center max-w-5xl mx-auto mb-8">
         <button
           onClick={() => router.push("/pulse")}
@@ -110,7 +159,7 @@ export default function SymbolPage() {
         </button>
 
         <h1 className="text-3xl font-bold mx-auto">
-          {symbol.toUpperCase()} Price Chart 📈
+          {symbol} Price Chart 📈
         </h1>
       </div>
 
@@ -120,7 +169,9 @@ export default function SymbolPage() {
             key={d}
             onClick={() => setDays(d)}
             className={`px-4 py-2 rounded-lg font-semibold ${
-              days === d ? "bg-[var(--accent)] text-black" : "bg-neutral-700 hover:bg-neutral-600"
+              days === d
+                ? "bg-[#00FFA3] text-black"
+                : "bg-neutral-700 hover:bg-neutral-600"
             }`}
           >
             {d}D
@@ -128,8 +179,8 @@ export default function SymbolPage() {
         ))}
       </div>
 
-      <div className="max-w-5xl mx-auto bg-neutral-900 p-6 rounded-xl border border-[var(--accent)]/40 shadow-lg">
-        <Line data={chartData} />
+      <div className="max-w-5xl mx-auto h-[420px] bg-neutral-900 p-6 rounded-xl border border-[#00FFA3]/40 shadow-lg">
+        <Line data={chartData} options={options} />
       </div>
 
       <p className="text-center text-gray-400 mt-10">

@@ -1,62 +1,48 @@
 "use client";
+
 import { useEffect, useState } from "react";
 import "./globals.css";
+import Link from "next/link";
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const [theme, setTheme] = useState<"solana" | "jupiter">("solana");
 
-  // Load saved theme on first render
+  // Load saved theme (future-ready, no UI toggle here)
   useEffect(() => {
-    const saved = (localStorage.getItem("theme") as "solana" | "jupiter") || "solana";
+    const saved =
+      (localStorage.getItem("theme") as "solana" | "jupiter") || "solana";
     setTheme(saved);
-    document.body.classList.add(saved + "-theme");
+    document.body.classList.add(`${saved}-theme`);
   }, []);
-
-  // Switch theme
-  const setThemeMode = (mode: "solana" | "jupiter") => {
-    document.body.classList.remove(theme + "-theme");
-    document.body.classList.add(mode + "-theme");
-    setTheme(mode);
-    localStorage.setItem("theme", mode);
-  };
 
   return (
     <html lang="en">
-      <body className={theme + "-theme"}>
-        {/* ================= NAVBAR ================= */}
-        <nav className="flex justify-between items-center px-6 py-4 border-b border-neutral-800">
-          <h1 className="font-bold text-2xl">
-            Jupiter Pulse ⚡
-          </h1>
+      <body className={`${theme}-theme min-h-screen`}>
 
-          {/* Theme Buttons */}
-          <div className="flex gap-3">
-            <button
-              onClick={() => setThemeMode("solana")}
-              className={`px-4 py-2 rounded-full font-semibold transition ${
-                theme === "solana"
-                  ? "bg-[#00FFA3] text-black shadow-lg"
-                  : "bg-transparent text-gray-300 border border-[#00FFA3] hover:bg-[#00ffa33a]"
-              }`}
-            >
-              Solana Mode
-            </button>
+        {/* ================= GLOBAL HEADER ================= */}
+        <header className="sticky top-0 z-50 backdrop-blur-md bg-black/40 border-b border-white/5">
+          <div className="max-w-7xl mx-auto px-6 py-4 flex items-center">
 
-            <button
-              onClick={() => setThemeMode("jupiter")}
-              className={`px-4 py-2 rounded-full font-semibold transition ${
-                theme === "jupiter"
-                  ? "bg-[#ff7a00] text-black shadow-lg"
-                  : "bg-transparent text-gray-300 border border-[#ff7a00] hover:bg-[#ff7a003a]"
-              }`}
-            >
-              Jupiter Mode
-            </button>
+            {/* BRAND ONLY */}
+            <Link href="/" className="flex flex-col">
+              <span className="text-xl font-bold tracking-tight text-white">
+                ⚡ Jupiter Pulse
+              </span>
+              <span className="text-xs text-gray-400">
+                Real-time Solana market pulse
+              </span>
+            </Link>
+
           </div>
-        </nav>
+        </header>
 
-        {/* Main Content */}
-        {children}
+        {/* ================= PAGE CONTENT ================= */}
+        <main>{children}</main>
+
       </body>
     </html>
   );
