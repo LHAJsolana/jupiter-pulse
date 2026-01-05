@@ -11,6 +11,7 @@ import {
   PointElement,
   Tooltip,
   Legend,
+  type ChartOptions,
 } from "chart.js";
 
 ChartJS.register(
@@ -48,14 +49,13 @@ export default function SymbolPage() {
 
       if (!data?.prices || data.prices.length === 0) {
         setError("No price history data available.");
-        setLoading(false);
         return;
       }
 
       setHistory(data.prices);
       setError(null);
 
-      // cache for reuse
+      // cache for sparklines
       localStorage.setItem(
         `history-${symbol}`,
         JSON.stringify(data.prices)
@@ -130,7 +130,8 @@ export default function SymbolPage() {
     ],
   };
 
-  const options = {
+  // ✅ Typed options (this fixes Vercel)
+  const options: ChartOptions<"line"> = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
@@ -138,11 +139,16 @@ export default function SymbolPage() {
       tooltip: { intersect: false },
     },
     scales: {
-      x: { grid: { display: false } },
+      x: {
+        grid: { display: false },
+      },
       y: {
         grid: { color: "rgba(255,255,255,0.05)" },
         ticks: {
-          callback: (v: number) => `$${v}`,
+          callback: (value) => {
+            const num = typeof value === "number" ? value : Number(value);
+            return `$${num}`;
+          },
         },
       },
     },
