@@ -1,15 +1,18 @@
 import "./globals.css";
 import type { Metadata } from "next";
+import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Jupiter Pulse ⚡",
+  title: "Jupiter Pulse ⚡ – Real-Time Solana Market Pulse",
   description:
-    "Real-time market pulse for the Jupiter & Solana ecosystem. Live prices, charts, and on-chain momentum.",
+    "Real-time observability dashboard for Solana tokens. Live prices, charts, and market momentum built for the Jupiter ecosystem.",
+
+  metadataBase: new URL("https://jupiter-pulse-abet.vercel.app"),
 
   openGraph: {
     title: "Jupiter Pulse ⚡",
     description:
-      "Real-time market pulse for the Jupiter & Solana ecosystem.",
+      "Real-time market pulse for the Jupiter ecosystem on Solana.",
     url: "https://jupiter-pulse-abet.vercel.app",
     siteName: "Jupiter Pulse",
     images: [
@@ -20,7 +23,6 @@ export const metadata: Metadata = {
         alt: "Jupiter Pulse – Real-Time Market Pulse",
       },
     ],
-    locale: "en_US",
     type: "website",
   },
 
@@ -28,12 +30,10 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Jupiter Pulse ⚡",
     description:
-      "Live Solana market data, charts & momentum built for Jupiter.",
+      "Track Solana markets in real time. Live prices, charts & momentum for the Jupiter ecosystem.",
     images: ["/og.png"],
     creator: "@lhajsol",
   },
-
-  metadataBase: new URL("https://jupiter-pulse-abet.vercel.app"),
 };
 
 export default function RootLayout({
@@ -43,7 +43,23 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="min-h-screen">{children}</body>
+      <body className="min-h-screen bg-black text-white">
+        {/* GLOBAL HEADER */}
+        <header className="sticky top-0 z-50 backdrop-blur-md bg-black/40 border-b border-white/5">
+          <div className="max-w-7xl mx-auto px-6 py-4 flex items-center">
+            <Link href="/" className="flex flex-col">
+              <span className="text-xl font-bold tracking-tight">
+                ⚡ Jupiter Pulse
+              </span>
+              <span className="text-xs text-gray-400">
+                Real-time Solana market pulse
+              </span>
+            </Link>
+          </div>
+        </header>
+
+        <main>{children}</main>
+      </body>
     </html>
   );
 }
