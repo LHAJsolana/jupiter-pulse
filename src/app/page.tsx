@@ -94,8 +94,16 @@ export default function HomePage() {
 
       {/* FOOTER */}
       <footer className="mt-24 mb-6 text-gray-500 text-sm">
-        Built by <span className="text-white font-semibold">@lhajsol</span> •
-        Powered by Jupiter & Solana ⚡
+        Built by{" "}
+        <a
+          href="https://x.com/lhajsol"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-white font-semibold hover:text-[#00FFA3] transition"
+        >
+          @lhajsol
+        </a>{" "}
+        • Powered by Jupiter & Solana ⚡
       </footer>
     </div>
   );
