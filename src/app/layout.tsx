@@ -1,49 +1,49 @@
-"use client";
-
-import { useEffect, useState } from "react";
 import "./globals.css";
-import Link from "next/link";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Jupiter Pulse ⚡",
+  description:
+    "Real-time market pulse for the Jupiter & Solana ecosystem. Live prices, charts, and on-chain momentum.",
+
+  openGraph: {
+    title: "Jupiter Pulse ⚡",
+    description:
+      "Real-time market pulse for the Jupiter & Solana ecosystem.",
+    url: "https://jupiter-pulse-abet.vercel.app",
+    siteName: "Jupiter Pulse",
+    images: [
+      {
+        url: "/og.png",
+        width: 1200,
+        height: 630,
+        alt: "Jupiter Pulse – Real-Time Market Pulse",
+      },
+    ],
+    locale: "en_US",
+    type: "website",
+  },
+
+  twitter: {
+    card: "summary_large_image",
+    title: "Jupiter Pulse ⚡",
+    description:
+      "Live Solana market data, charts & momentum built for Jupiter.",
+    images: ["/og.png"],
+    creator: "@lhajsol",
+  },
+
+  metadataBase: new URL("https://jupiter-pulse-abet.vercel.app"),
+};
 
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const [theme, setTheme] = useState<"solana" | "jupiter">("solana");
-
-  // Load saved theme (future-ready, no UI toggle here)
-  useEffect(() => {
-    const saved =
-      (localStorage.getItem("theme") as "solana" | "jupiter") || "solana";
-    setTheme(saved);
-    document.body.classList.add(`${saved}-theme`);
-  }, []);
-
   return (
     <html lang="en">
-      <body className={`${theme}-theme min-h-screen`}>
-
-        {/* ================= GLOBAL HEADER ================= */}
-        <header className="sticky top-0 z-50 backdrop-blur-md bg-black/40 border-b border-white/5">
-          <div className="max-w-7xl mx-auto px-6 py-4 flex items-center">
-
-            {/* BRAND ONLY */}
-            <Link href="/" className="flex flex-col">
-              <span className="text-xl font-bold tracking-tight text-white">
-                ⚡ Jupiter Pulse
-              </span>
-              <span className="text-xs text-gray-400">
-                Real-time Solana market pulse
-              </span>
-            </Link>
-
-          </div>
-        </header>
-
-        {/* ================= PAGE CONTENT ================= */}
-        <main>{children}</main>
-
-      </body>
+      <body className="min-h-screen">{children}</body>
     </html>
   );
 }
