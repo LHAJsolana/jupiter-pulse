@@ -52,21 +52,21 @@ export default function SymbolPage() {
   async function loadHistory(days: number) {
     try {
       setLoading(true);
-
       const res = await fetch(
         `/api/prices/history/${apiSymbol}?days=${days}`,
         { cache: "no-store" }
       );
       const data = await res.json();
 
-      if (!Array.isArray(data.prices) || data.prices.length === 0) return;
+      if (!Array.isArray(data.prices)) return;
 
+      const pricesArr = data.prices.map((p: any) => p[1]);
+      setPrices(pricesArr);
       setRawDates(data.prices.map((p: any) => p[0]));
-      setPrices(data.prices.map((p: any) => p[1]));
 
-      // realistic mock volume (until real API)
+      // realistic mock volume
       setVolumes(
-        data.prices.map(() =>
+        pricesArr.map(() =>
           Math.floor(Math.random() * 700_000 + 300_000)
         )
       );
@@ -84,6 +84,10 @@ export default function SymbolPage() {
     }
   }
 
+  /* =====================
+     PRICE STATS
+  ====================== */
+
   const priceStats = useMemo(() => {
     if (prices.length < 2) return null;
     const first = prices[0];
@@ -91,6 +95,36 @@ export default function SymbolPage() {
     const changePct = ((last - first) / first) * 100;
     return { last, changePct };
   }, [prices]);
+
+  /* =====================
+     SIGNAL (STABLE)
+  ====================== */
+
+  const signal = useMemo(() => {
+    if (!priceStats) return null;
+
+    if (priceStats.changePct > 5) {
+      return {
+        label: "Bullish Signal",
+        color: "text-green-400",
+        bg: "bg-green-400/10",
+      };
+    }
+
+    if (priceStats.changePct < -5) {
+      return {
+        label: "Bearish Signal",
+        color: "text-red-400",
+        bg: "bg-red-400/10",
+      };
+    }
+
+    return {
+      label: "Neutral Signal",
+      color: "text-yellow-400",
+      bg: "bg-yellow-400/10",
+    };
+  }, [priceStats]);
 
   if (loading) {
     return (
@@ -114,6 +148,14 @@ export default function SymbolPage() {
               </div>
             )}
           </div>
+
+          {signal && (
+            <div
+              className={`px-4 py-2 rounded-full text-sm font-semibold ${signal.bg} ${signal.color}`}
+            >
+              {signal.label}
+            </div>
+          )}
         </div>
 
         {/* TIMEFRAMES */}
@@ -122,10 +164,10 @@ export default function SymbolPage() {
             <button
               key={t.days}
               onClick={() => setDays(t.days)}
-              className={`px-4 py-1.5 rounded-full text-sm ${
+              className={`px-4 py-1.5 rounded-full text-sm transition ${
                 days === t.days
                   ? "bg-green-400 text-black"
-                  : "border border-white/10 text-gray-400"
+                  : "border border-white/10 text-gray-400 hover:text-white"
               }`}
             >
               {t.label}
@@ -142,6 +184,15 @@ export default function SymbolPage() {
                 labels,
                 datasets: [
                   {
+                    label: "Volume",
+                    type: "bar",
+                    data: volumes,
+                    backgroundColor: "rgba(0,255,163,0.12)",
+                    yAxisID: "volume",
+                    barPercentage: 1,
+                    categoryPercentage: 1,
+                  },
+                  {
                     label: "Price",
                     data: prices,
                     borderColor: "#00FFA3",
@@ -149,15 +200,6 @@ export default function SymbolPage() {
                     tension: 0.35,
                     pointRadius: 0,
                     yAxisID: "price",
-                  },
-                  {
-                    label: "Volume",
-                    type: "bar",
-                    data: volumes,
-                    yAxisID: "volume",
-                    backgroundColor: "rgba(0,255,163,0.12)",
-                    barPercentage: 1.0,
-                    categoryPercentage: 1.0,
                   },
                 ],
               }}
@@ -171,7 +213,7 @@ export default function SymbolPage() {
                 plugins: {
                   legend: { display: false },
                   tooltip: {
-                    backgroundColor: "rgba(0,0,0,0.95)",
+                    backgroundColor: "rgba(0,0,0,0.9)",
                     displayColors: false,
                     callbacks: {
                       title: (items) => {
@@ -179,24 +221,17 @@ export default function SymbolPage() {
                         return new Date(rawDates[i]).toLocaleString();
                       },
                       label: (item) => {
-                        const y = item.parsed?.y;
-                        if (y === null || y === undefined) return "";
-
                         if (item.dataset.label === "Volume") {
-                          return `Volume: ${Math.round(y).toLocaleString()}`;
+                          return `Volume: ${Number(item.raw).toLocaleString()}`;
                         }
-
-                        return `Price: $${y.toFixed(6)}`;
+                        return `Price: $${Number(item.raw).toFixed(6)}`;
                       },
                     },
                   },
                 },
                 scales: {
                   x: { display: false },
-                  price: {
-                    display: false,
-                    position: "right",
-                  },
+                  price: { display: false },
                   volume: {
                     display: false,
                     grid: { display: false },
