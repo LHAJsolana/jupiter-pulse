@@ -12,7 +12,7 @@ import {
   Tooltip,
   Filler,
 } from "chart.js";
-import { Line } from "react-chartjs-2";
+import { Chart } from "react-chartjs-2";
 
 ChartJS.register(
   LineElement,
@@ -42,8 +42,8 @@ export default function SymbolPage() {
   const [volumes, setVolumes] = useState<number[]>([]);
   const [labels, setLabels] = useState<string[]>([]);
   const [rawDates, setRawDates] = useState<number[]>([]);
-  const [loading, setLoading] = useState(true);
   const [days, setDays] = useState(7);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadHistory(days);
@@ -59,18 +59,15 @@ export default function SymbolPage() {
       );
       const data = await res.json();
 
-      if (!Array.isArray(data.prices) || data.prices.length === 0) {
-        setPrices([]);
-        return;
-      }
+      if (!Array.isArray(data.prices) || data.prices.length === 0) return;
 
       setRawDates(data.prices.map((p: any) => p[0]));
       setPrices(data.prices.map((p: any) => p[1]));
 
-      // 👇 MOCK VOLUME (until you wire real volume)
+      // realistic mock volume (until real API)
       setVolumes(
         data.prices.map(() =>
-          Math.floor(Math.random() * 1_000_000 + 200_000)
+          Math.floor(Math.random() * 700_000 + 300_000)
         )
       );
 
@@ -87,91 +84,36 @@ export default function SymbolPage() {
     }
   }
 
-  /* =====================
-     PRICE METRICS
-  ====================== */
-
   const priceStats = useMemo(() => {
     if (prices.length < 2) return null;
-
     const first = prices[0];
     const last = prices[prices.length - 1];
-    const change = last - first;
-    const changePct = (change / first) * 100;
-
-    return {
-      last,
-      change,
-      changePct,
-      positive: changePct >= 0,
-    };
+    const changePct = ((last - first) / first) * 100;
+    return { last, changePct };
   }, [prices]);
-
-  /* =====================
-     SIGNAL LOGIC
-  ====================== */
-
-  function ma(data: number[], period: number) {
-    if (data.length < period) return null;
-    return data.slice(-period).reduce((a, b) => a + b, 0) / period;
-  }
-
-  const signal = useMemo(() => {
-    const ma7 = ma(prices, 7);
-    const ma25 = ma(prices, 25);
-
-    if (!ma7 || !ma25 || !priceStats) return null;
-
-    if (ma7 > ma25 && priceStats.changePct > 0) {
-      return { label: "Bullish Signal", color: "text-green-400", bg: "bg-green-400/10" };
-    }
-
-    if (ma7 < ma25 && priceStats.changePct < 0) {
-      return { label: "Bearish Signal", color: "text-red-400", bg: "bg-red-400/10" };
-    }
-
-    return { label: "Neutral Signal", color: "text-yellow-400", bg: "bg-yellow-400/10" };
-  }, [prices, priceStats]);
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-gray-400 animate-pulse">
-        Loading {SYMBOL} pulse…
+      <div className="min-h-screen flex items-center justify-center text-gray-400">
+        Loading {SYMBOL}…
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-black via-zinc-900 to-black text-white px-6 py-14">
+    <div className="min-h-screen bg-black text-white px-6 py-14">
       <div className="max-w-6xl mx-auto">
         {/* HEADER */}
-        <div className="flex items-start justify-between mb-6">
+        <div className="flex justify-between items-start mb-6">
           <div>
-            <h1 className="text-4xl font-extrabold mb-2">{SYMBOL} Pulse</h1>
-
+            <h1 className="text-4xl font-bold">{SYMBOL} Pulse</h1>
             {priceStats && (
-              <div className="flex items-baseline gap-4">
-                <span className="text-3xl font-bold">
-                  ${priceStats.last.toFixed(4)}
-                </span>
-
-                <span
-                  className={`text-lg font-semibold ${
-                    priceStats.positive ? "text-green-400" : "text-red-400"
-                  }`}
-                >
-                  {priceStats.positive ? "+" : ""}
-                  {priceStats.changePct.toFixed(2)}%
-                </span>
+              <div className="text-xl mt-1 text-green-400">
+                ${priceStats.last.toFixed(4)} (
+                {priceStats.changePct.toFixed(2)}%)
               </div>
             )}
           </div>
-
-          {signal && (
-            <div className={`px-4 py-2 rounded-full text-sm font-semibold ${signal.bg} ${signal.color}`}>
-              {signal.label}
-            </div>
-          )}
         </div>
 
         {/* TIMEFRAMES */}
@@ -180,10 +122,10 @@ export default function SymbolPage() {
             <button
               key={t.days}
               onClick={() => setDays(t.days)}
-              className={`px-4 py-1.5 rounded-full text-sm border transition ${
+              className={`px-4 py-1.5 rounded-full text-sm ${
                 days === t.days
-                  ? "bg-green-400 text-black border-green-400"
-                  : "border-white/10 text-gray-400 hover:text-white"
+                  ? "bg-green-400 text-black"
+                  : "border border-white/10 text-gray-400"
               }`}
             >
               {t.label}
@@ -192,14 +134,15 @@ export default function SymbolPage() {
         </div>
 
         {/* CHART */}
-        <div className="rounded-2xl border border-white/10 bg-black/40 backdrop-blur p-6 shadow-xl">
+        <div className="rounded-xl border border-white/10 bg-black/50 p-6">
           <div className="h-[420px]">
-            <Line
+            <Chart
+              type="line"
               data={{
                 labels,
                 datasets: [
                   {
-                    type: "line",
+                    label: "Price",
                     data: prices,
                     borderColor: "#00FFA3",
                     borderWidth: 2.5,
@@ -208,39 +151,52 @@ export default function SymbolPage() {
                     yAxisID: "price",
                   },
                   {
+                    label: "Volume",
                     type: "bar",
                     data: volumes,
-                    backgroundColor: "rgba(0,255,163,0.15)",
                     yAxisID: "volume",
+                    backgroundColor: "rgba(0,255,163,0.12)",
+                    barPercentage: 1.0,
+                    categoryPercentage: 1.0,
                   },
                 ],
               }}
               options={{
                 responsive: true,
                 maintainAspectRatio: false,
-                interaction: { mode: "index", intersect: false },
+                interaction: {
+                  mode: "index",
+                  intersect: false,
+                },
                 plugins: {
                   legend: { display: false },
                   tooltip: {
                     backgroundColor: "rgba(0,0,0,0.95)",
                     displayColors: false,
                     callbacks: {
-                      title: (ctx) => {
-                        const i = ctx[0].dataIndex;
+                      title: (items) => {
+                        const i = items[0].dataIndex;
                         return new Date(rawDates[i]).toLocaleString();
                       },
-                      label: (ctx) => {
-                        if (ctx.dataset.type === "bar") {
-                          return `Volume: ${ctx.parsed.y.toLocaleString()}`;
+                      label: (item) => {
+                        const y = item.parsed?.y;
+                        if (y === null || y === undefined) return "";
+
+                        if (item.dataset.label === "Volume") {
+                          return `Volume: ${Math.round(y).toLocaleString()}`;
                         }
-                        return `Price: $${ctx.parsed.y.toFixed(6)}`;
+
+                        return `Price: $${y.toFixed(6)}`;
                       },
                     },
                   },
                 },
                 scales: {
                   x: { display: false },
-                  price: { display: false },
+                  price: {
+                    display: false,
+                    position: "right",
+                  },
                   volume: {
                     display: false,
                     grid: { display: false },
@@ -253,7 +209,7 @@ export default function SymbolPage() {
 
         <button
           onClick={() => router.back()}
-          className="mt-8 text-gray-400 hover:text-white underline"
+          className="mt-6 text-gray-400 underline"
         >
           ← Back to Pulse
         </button>
