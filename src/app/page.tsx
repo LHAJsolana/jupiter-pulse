@@ -12,15 +12,6 @@ export default function HomePage() {
         <h1 className="text-xl font-bold flex items-center gap-2">
           Jupiter Pulse <span className="text-yellow-400">⚡</span>
         </h1>
-
-        <div className="flex gap-3">
-          <span className="px-4 py-2 rounded-full border border-[#14F195] text-[#14F195] text-sm">
-            Solana Mode
-          </span>
-          <span className="px-4 py-2 rounded-full border border-[#ff7a00] text-[#ff7a00] text-sm">
-            Jupiter Mode
-          </span>
-        </div>
       </header>
 
       {/* HERO */}

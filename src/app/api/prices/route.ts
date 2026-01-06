@@ -5,31 +5,34 @@ const MAP: Record<string, string> = {
   WIF: "dogwifcoin",
   BONK: "bonk",
   JUP: "jupiter-exchange-solana",
-  USDC: "usd-coin"
+  USDC: "usd-coin",
 };
 
 export async function GET() {
   try {
     const ids = Object.values(MAP).join(",");
-    const url = `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd&include_24hr_change=true`;
 
-    const res = await fetch(url, { cache: "no-store" });
+    const res = await fetch(
+      `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd&include_24hr_change=true`,
+      { cache: "no-store" }
+    );
+
+    if (!res.ok) {
+      console.error("CoinGecko price error:", res.status);
+      return NextResponse.json([], { status: 200 });
+    }
+
     const data = await res.json();
 
-    const response = Object.keys(MAP).map((sym) => {
-      const key = MAP[sym];
+    const result = Object.entries(MAP).map(([symbol, id]) => ({
+      symbol,
+      price: data[id]?.usd ?? 0,
+      change: data[id]?.usd_24h_change ?? 0,
+    }));
 
-      return {
-        symbol: sym,
-        price: data[key]?.usd ?? 0,
-        change: data[key]?.usd_24h_change ?? 0
-      };
-    });
-
-    return NextResponse.json(response, { status: 200 });
-
+    return NextResponse.json(result);
   } catch (e) {
-    console.log("Prices API ERROR =>", e);
-    return NextResponse.json({ error: "Fetch failed" }, { status: 500 });
+    console.error("Prices API error:", e);
+    return NextResponse.json([], { status: 500 });
   }
 }

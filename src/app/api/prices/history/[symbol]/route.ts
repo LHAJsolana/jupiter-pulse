@@ -2,40 +2,42 @@ import { NextResponse } from "next/server";
 
 const ID_MAP: Record<string, string> = {
   sol: "solana",
-  eth: "ethereum",
-  btc: "bitcoin",
-  bonk: "bonk",
+  wif: "dogwifcoin",
   jup: "jupiter-exchange-solana",
-  sui: "sui",
-  apt: "aptos",
+  bonk: "bonk",
+  usdc: "usd-coin",
 };
 
-export async function GET(req: Request) {
+export async function GET(
+  req: Request,
+  { params }: { params: Promise<{ symbol: string }> }
+) {
   try {
-    const url = new URL(req.url);
+    // ✅ unwrap params (THIS IS THE FIX)
+    const { symbol } = await params;
+    const s = symbol.toLowerCase();
 
-    // extract symbol safely
-    const parts = url.pathname.split("/");
-    const symbol = parts[parts.length - 1]?.toLowerCase();
-
-    if (!symbol || !ID_MAP[symbol]) {
-      return NextResponse.json({ prices: [] }, { status: 400 });
+    if (!ID_MAP[s]) {
+      return NextResponse.json({ prices: [] });
     }
 
-    const days = url.searchParams.get("days") ?? "7";
-    const id = ID_MAP[symbol];
+    const { searchParams } = new URL(req.url);
+    const days = searchParams.get("days") || "7";
 
-    const res = await fetch(
-      `https://api.coingecko.com/api/v3/coins/${id}/market_chart?vs_currency=usd&days=${days}`,
-      { cache: "no-store" }
-    );
+    const url = `https://api.coingecko.com/api/v3/coins/${ID_MAP[s]}/market_chart?vs_currency=usd&days=${days}`;
 
-    if (!res.ok) throw new Error("CoinGecko error");
+    const res = await fetch(url, {
+      headers: { accept: "application/json" },
+      next: { revalidate: 60 },
+    });
 
     const data = await res.json();
-    return NextResponse.json({ prices: data.prices });
-  } catch (e) {
-    console.error("History API error:", e);
-    return NextResponse.json({ prices: [] }, { status: 500 });
+
+    return NextResponse.json({
+      prices: Array.isArray(data.prices) ? data.prices : [],
+    });
+  } catch (err) {
+    console.error("History API error:", err);
+    return NextResponse.json({ prices: [] });
   }
 }

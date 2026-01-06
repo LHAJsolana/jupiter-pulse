@@ -1,10 +1,25 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 
-export default function Market() {
-  const [coins, setCoins] = useState<any[]>([]);
-  const [charts, setCharts] = useState<Record<string,string>>({});
+type Coin = {
+  symbol: string;
+  price: number | null;
+  change24h: number | null;
+};
+
+function getSignal(change?: number | null) {
+  if (typeof change !== "number") return "No data";
+  if (change >= 3) return "🚀 Building Momentum";
+  if (change <= -3) return "⚠️ Weakening";
+  return "— Neutral";
+}
+
+export default function MarketSignalsPage() {
+  const [coins, setCoins] = useState<Coin[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     loadMarket();
@@ -12,68 +27,101 @@ export default function Market() {
 
   async function loadMarket() {
     try {
-      const res = await fetch("/api/market");
+      setError(false);
+      const res = await fetch("/api/market", { cache: "no-store" });
       const data = await res.json();
-      setCoins(data);
 
-      // fetch sparkline for each coin after market loads
-      data.forEach((c: any) => loadChart(c.symbol));
+      // 🔥 HARD GUARD (THIS FIXES THE CRASH)
+      if (!Array.isArray(data)) {
+        console.error("Market API invalid response:", data);
+        setError(true);
+        setCoins([]);
+        return;
+      }
+
+      setCoins(data);
     } catch (e) {
-      console.log("❌ MARKET ERROR:", e);
+      console.error("Market load error:", e);
+      setError(true);
+      setCoins([]);
+    } finally {
+      setLoading(false);
     }
   }
 
-  async function loadChart(symbol: string) {
-    try {
-      const res = await fetch(`/api/prices/history/${symbol}?days=7`);
-      const data = await res.json();
+  const signals = useMemo(() => {
+    return coins.map((c) => ({
+      ...c,
+      signal: getSignal(c.change24h),
+    }));
+  }, [coins]);
 
-      if (!data.prices?.length) return;
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-gray-400 animate-pulse">
+        Loading Market Signals…
+      </div>
+    );
+  }
 
-      // extract only price points
-      const prices = data.prices.map((p: any) => p[1]).slice(-60);
-
-      const chartUrl = `https://quickchart.io/chart?c={
-        type:'sparkline',
-        data:{datasets:[{data:[${prices}]}]},
-        options:{elements:{line:{borderColor:'#00ffae'}}}
-      }`;
-
-      setCharts(prev => ({ ...prev, [symbol]: chartUrl }));
-    } catch (e) {
-      console.log("❌ SPARKLINE ERROR:", symbol, e);
-    }
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-red-400">
+        ✕ Failed to load Market Signals
+      </div>
+    );
   }
 
   return (
-    <div className="px-8 py-12 text-white max-w-5xl mx-auto">
-
-      <h1 className="text-3xl font-bold mb-8">Market Overview 🔥</h1>
-
-      {coins.length === 0 && <p className="text-gray-400">Loading...</p>}
+    <div className="min-h-screen px-6 py-16 max-w-5xl mx-auto text-white">
+      <h1 className="text-4xl font-extrabold mb-2">
+        📡 Market Signals
+      </h1>
+      <p className="text-gray-400 mb-8">
+        Momentum & trend insights — click to deep dive
+      </p>
 
       <div className="space-y-3">
-        {coins.map((c) => (
-          <div
+        {signals.map((c) => (
+          <Link
             key={c.symbol}
-            className="bg-neutral-900 p-4 rounded-lg flex justify-between items-center hover:bg-neutral-800 transition"
+            href={`/pulse/${c.symbol}`}
+            className="block p-4 rounded-xl bg-white/5 border border-white/10 hover:border-[#00FFA3]/40 transition"
           >
-            <div>
-              <p className="uppercase font-bold">{c.symbol}</p>
-              <p className={`text-sm ${c.change24h > 0 ? "text-green-400" : "text-red-400"}`}>
-                {c.change24h.toFixed(2)}%
-              </p>
+            <div className="flex justify-between items-center">
+              <div>
+                <div className="font-bold text-lg">
+                  {c.symbol}
+                </div>
+                <div className="text-sm text-gray-400">
+                  {c.signal}
+                </div>
+              </div>
+
+              <div className="text-right">
+                <div className="font-semibold">
+                  {typeof c.price === "number"
+                    ? `$${c.price.toLocaleString()}`
+                    : "—"}
+                </div>
+                <div
+                  className={`text-sm ${
+                    typeof c.change24h === "number"
+                      ? c.change24h >= 0
+                        ? "text-green-400"
+                        : "text-red-400"
+                      : "text-gray-500"
+                  }`}
+                >
+                  {typeof c.change24h === "number"
+                    ? `${c.change24h >= 0 ? "+" : ""}${c.change24h.toFixed(
+                        2
+                      )}%`
+                    : "—"}
+                </div>
+              </div>
             </div>
-
-            <p className="font-semibold text-lg">${c.price.toLocaleString()}</p>
-
-            {/* Chart — appear when ready */}
-            {charts[c.symbol] ? (
-              <img src={charts[c.symbol]} className="w-28 opacity-90" />
-            ) : (
-              <p className="text-gray-400 text-sm">Loading...</p>
-            )}
-          </div>
+          </Link>
         ))}
       </div>
     </div>
