@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Chart } from "react-chartjs-2";
-import type { ChartOptions } from "chart.js";
+import type { ChartOptions, ChartData } from "chart.js";
 
 import {
   Chart as ChartJS,
@@ -87,13 +87,8 @@ export default function SymbolPage() {
       const data: { prices?: PricePoint[] } = await res.json();
       if (!Array.isArray(data.prices)) return;
 
-      const pricesArr: number[] = data.prices.map(
-        (p: PricePoint) => p[1]
-      );
-
-      const datesArr: number[] = data.prices.map(
-        (p: PricePoint) => p[0]
-      );
+      const pricesArr = data.prices.map((p) => p[1]);
+      const datesArr = data.prices.map((p) => p[0]);
 
       setPrices(pricesArr);
       setRawDates(datesArr);
@@ -105,7 +100,7 @@ export default function SymbolPage() {
       );
 
       setLabels(
-        datesArr.map((d: number) =>
+        datesArr.map((d) =>
           new Date(d).toLocaleDateString("en-US", {
             month: "short",
             day: "numeric",
@@ -130,27 +125,25 @@ export default function SymbolPage() {
   }, [prices]);
 
   /* =====================
-     SIGNAL (STABLE)
+     SIGNAL
   ====================== */
 
   const signal = useMemo(() => {
     if (!priceStats) return null;
 
-    if (priceStats.changePct > 5) {
+    if (priceStats.changePct > 5)
       return {
         label: "Bullish Signal",
         color: "text-green-400",
         bg: "bg-green-400/10",
       };
-    }
 
-    if (priceStats.changePct < -5) {
+    if (priceStats.changePct < -5)
       return {
         label: "Bearish Signal",
         color: "text-red-400",
         bg: "bg-red-400/10",
       };
-    }
 
     return {
       label: "Neutral Signal",
@@ -160,21 +153,22 @@ export default function SymbolPage() {
   }, [priceStats]);
 
   /* =====================
-     CHART CONFIG (MEMO)
+     CHART DATA (MIXED)
   ====================== */
 
-  const chartData = useMemo(
+  const chartData: ChartData = useMemo(
     () => ({
       labels,
       datasets: [
         {
+          type: "bar",
           label: "Volume",
-          type: "bar" as const,
           data: volumes,
           backgroundColor: "rgba(0,255,163,0.12)",
           yAxisID: "volume",
         },
         {
+          type: "line",
           label: "Price",
           data: prices,
           borderColor: "#00FFA3",
@@ -188,7 +182,7 @@ export default function SymbolPage() {
     [labels, prices, volumes]
   );
 
-  const chartOptions: ChartOptions<"line"> = useMemo(
+  const chartOptions: ChartOptions = useMemo(
     () => ({
       responsive: true,
       maintainAspectRatio: false,
@@ -274,7 +268,8 @@ export default function SymbolPage() {
         </div>
 
         <div className="rounded-xl border border-white/10 bg-black/50 p-6 h-[420px]">
-          <Chart type="line" data={chartData} options={chartOptions} />
+          {/* IMPORTANT: no `type` prop here */}
+          <Chart data={chartData} options={chartOptions} />
         </div>
 
         <button
