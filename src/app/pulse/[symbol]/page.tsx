@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Chart } from "react-chartjs-2";
 import type { ChartOptions } from "chart.js";
@@ -47,6 +47,8 @@ const TIMEFRAMES = [
   { label: "90D", days: 90 },
 ];
 
+type PricePoint = [number, number];
+
 export default function SymbolPage() {
   registerChart();
 
@@ -61,8 +63,8 @@ export default function SymbolPage() {
   const [volumes, setVolumes] = useState<number[]>([]);
   const [labels, setLabels] = useState<string[]>([]);
   const [rawDates, setRawDates] = useState<number[]>([]);
-  const [days, setDays] = useState(7);
-  const [loading, setLoading] = useState(true);
+  const [days, setDays] = useState<number>(7);
+  const [loading, setLoading] = useState<boolean>(true);
 
   /* =====================
      DATA LOADING
@@ -73,7 +75,7 @@ export default function SymbolPage() {
     loadHistory(days);
   }, [apiSymbol, days]);
 
-  async function loadHistory(days: number) {
+  async function loadHistory(days: number): Promise<void> {
     try {
       setLoading(true);
 
@@ -82,23 +84,28 @@ export default function SymbolPage() {
         { cache: "no-store" }
       );
 
-      const data = await res.json();
-      if (!Array.isArray(data?.prices)) return;
+      const data: { prices?: PricePoint[] } = await res.json();
+      if (!Array.isArray(data.prices)) return;
 
-      const pricesArr = data.prices.map((p: any) => Number(p[1]));
-      const datesArr = data.prices.map((p: any) => Number(p[0]));
+      const pricesArr: number[] = data.prices.map(
+        (p: PricePoint) => p[1]
+      );
+
+      const datesArr: number[] = data.prices.map(
+        (p: PricePoint) => p[0]
+      );
 
       setPrices(pricesArr);
       setRawDates(datesArr);
 
       setVolumes(
-        pricesArr.map(() =>
-          Math.floor(Math.random() * 700_000 + 300_000)
+        pricesArr.map(
+          () => Math.floor(Math.random() * 700_000 + 300_000)
         )
       );
 
       setLabels(
-        datesArr.map((d) =>
+        datesArr.map((d: number) =>
           new Date(d).toLocaleDateString("en-US", {
             month: "short",
             day: "numeric",
@@ -117,7 +124,7 @@ export default function SymbolPage() {
   const priceStats = useMemo(() => {
     if (prices.length < 2) return null;
     const first = prices[0];
-    const last = prices.at(-1)!;
+    const last = prices[prices.length - 1];
     const changePct = ((last - first) / first) * 100;
     return { last, changePct };
   }, [prices]);
@@ -129,19 +136,21 @@ export default function SymbolPage() {
   const signal = useMemo(() => {
     if (!priceStats) return null;
 
-    if (priceStats.changePct > 5)
+    if (priceStats.changePct > 5) {
       return {
         label: "Bullish Signal",
         color: "text-green-400",
         bg: "bg-green-400/10",
       };
+    }
 
-    if (priceStats.changePct < -5)
+    if (priceStats.changePct < -5) {
       return {
         label: "Bearish Signal",
         color: "text-red-400",
         bg: "bg-red-400/10",
       };
+    }
 
     return {
       label: "Neutral Signal",
@@ -192,12 +201,13 @@ export default function SymbolPage() {
           callbacks: {
             title: (items) => {
               const i = items[0]?.dataIndex;
-              if (i == null || !rawDates[i]) return "";
+              if (i == null || rawDates[i] == null) return "";
               return new Date(rawDates[i]).toLocaleString();
             },
             label: (item) => {
-              if (item.dataset.label === "Volume")
+              if (item.dataset.label === "Volume") {
                 return `Volume: ${Number(item.raw).toLocaleString()}`;
+              }
               return `Price: $${Number(item.raw).toFixed(6)}`;
             },
           },
