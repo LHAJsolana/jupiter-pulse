@@ -14,23 +14,18 @@ export default function HomePage() {
         </h1>
       </header>
 
-      {/* HERO */}
+      {/* HERO (NO CTA) */}
       <section className="max-w-3xl">
         <h2 className="text-5xl font-extrabold mb-6 leading-tight">
-          🚀 Real-Time Market Pulse<br />
+          🚀 Real-Time Market Pulse
+          <br />
           for the <span className="text-[#14F195]">Jupiter</span> Ecosystem
         </h2>
 
-        <p className="text-gray-400 text-lg mb-10">
+        <p className="text-gray-400 text-lg">
           Jupiter Pulse is a real-time observability dashboard for Solana tokens —
           live prices, historical charts, and market momentum, built for speed and clarity.
         </p>
-
-        <Link href="/pulse">
-          <button className="px-8 py-4 rounded-xl text-lg font-bold bg-gradient-to-r from-[#14F195] to-[#00FFA3] text-black hover:opacity-90 transition">
-            Enter Dashboard →
-          </button>
-        </Link>
       </section>
 
       {/* ECOSYSTEM */}
@@ -57,30 +52,43 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* FEATURES */}
+      {/* FEATURES = NAVIGATION */}
       <section className="mt-24 grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl w-full">
-        {[
-          {
-            title: "Live Prices",
-            desc: "Auto-refreshing token prices with fallback protection."
-          },
-          {
-            title: "Charts & History",
-            desc: "Clean historical charts powered by CoinGecko."
-          },
-          {
-            title: "Market Signals",
-            desc: "Momentum & trend insights (coming soon)."
-          }
-        ].map((f) => (
-          <div
-            key={f.title}
-            className="p-6 rounded-xl border border-white/10 bg-white/5 backdrop-blur hover:scale-[1.02] transition"
-          >
-            <h3 className="text-xl font-bold mb-2">{f.title}</h3>
-            <p className="text-gray-400">{f.desc}</p>
+        {/* LIVE PRICES */}
+        <Link href="/pulse" className="group">
+          <div className="p-6 rounded-xl border border-white/10 bg-white/5 backdrop-blur hover:scale-[1.02] transition cursor-pointer h-full">
+            <h3 className="text-xl font-bold mb-2 group-hover:text-[#14F195]">
+              Live Prices
+            </h3>
+            <p className="text-gray-400">
+              Auto-refreshing token prices with fallback protection.
+            </p>
           </div>
-        ))}
+        </Link>
+
+        {/* CHARTS */}
+        <Link href="/pulse" className="group">
+          <div className="p-6 rounded-xl border border-white/10 bg-white/5 backdrop-blur hover:scale-[1.02] transition cursor-pointer h-full">
+            <h3 className="text-xl font-bold mb-2 group-hover:text-[#14F195]">
+              Charts & History
+            </h3>
+            <p className="text-gray-400">
+              Clean historical charts powered by CoinGecko.
+            </p>
+          </div>
+        </Link>
+
+        {/* LIVE SWAPS */}
+        <Link href="/liveswaps" className="group">
+          <div className="p-6 rounded-xl border border-white/10 bg-white/5 backdrop-blur hover:scale-[1.02] transition cursor-pointer h-full">
+            <h3 className="text-xl font-bold mb-2 group-hover:text-[#14F195]">
+              Live Swap Pulse
+            </h3>
+            <p className="text-gray-400">
+              Track real-time Solana swap flow & route dominance.
+            </p>
+          </div>
+        </Link>
       </section>
 
       {/* FOOTER */}

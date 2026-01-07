@@ -1,7 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { Chart } from "react-chartjs-2";
+import type { ChartOptions } from "chart.js";
+
 import {
   Chart as ChartJS,
   LineElement,
@@ -12,17 +15,30 @@ import {
   Tooltip,
   Filler,
 } from "chart.js";
-import { Chart } from "react-chartjs-2";
 
-ChartJS.register(
-  LineElement,
-  BarElement,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  Tooltip,
-  Filler
-);
+/* =====================
+   SAFE REGISTRATION
+===================== */
+
+let chartRegistered = false;
+function registerChart() {
+  if (!chartRegistered) {
+    ChartJS.register(
+      LineElement,
+      BarElement,
+      CategoryScale,
+      LinearScale,
+      PointElement,
+      Tooltip,
+      Filler
+    );
+    chartRegistered = true;
+  }
+}
+
+/* =====================
+   CONSTANTS
+===================== */
 
 const TIMEFRAMES = [
   { label: "1D", days: 1 },
@@ -32,11 +48,14 @@ const TIMEFRAMES = [
 ];
 
 export default function SymbolPage() {
-  const { symbol } = useParams<{ symbol: string }>();
+  registerChart();
+
+  const params = useParams();
   const router = useRouter();
 
-  const SYMBOL = symbol.toUpperCase();
-  const apiSymbol = symbol.toLowerCase();
+  const symbol = typeof params?.symbol === "string" ? params.symbol : null;
+  const SYMBOL = symbol ? symbol.toUpperCase() : "";
+  const apiSymbol = symbol ? symbol.toLowerCase() : "";
 
   const [prices, setPrices] = useState<number[]>([]);
   const [volumes, setVolumes] = useState<number[]>([]);
@@ -45,26 +64,33 @@ export default function SymbolPage() {
   const [days, setDays] = useState(7);
   const [loading, setLoading] = useState(true);
 
+  /* =====================
+     DATA LOADING
+  ====================== */
+
   useEffect(() => {
+    if (!apiSymbol) return;
     loadHistory(days);
   }, [apiSymbol, days]);
 
   async function loadHistory(days: number) {
     try {
       setLoading(true);
+
       const res = await fetch(
         `/api/prices/history/${apiSymbol}?days=${days}`,
         { cache: "no-store" }
       );
+
       const data = await res.json();
+      if (!Array.isArray(data?.prices)) return;
 
-      if (!Array.isArray(data.prices)) return;
+      const pricesArr = data.prices.map((p: any) => Number(p[1]));
+      const datesArr = data.prices.map((p: any) => Number(p[0]));
 
-      const pricesArr = data.prices.map((p: any) => p[1]);
       setPrices(pricesArr);
-      setRawDates(data.prices.map((p: any) => p[0]));
+      setRawDates(datesArr);
 
-      // realistic mock volume
       setVolumes(
         pricesArr.map(() =>
           Math.floor(Math.random() * 700_000 + 300_000)
@@ -72,8 +98,8 @@ export default function SymbolPage() {
       );
 
       setLabels(
-        data.prices.map((p: any) =>
-          new Date(p[0]).toLocaleDateString("en-US", {
+        datesArr.map((d) =>
+          new Date(d).toLocaleDateString("en-US", {
             month: "short",
             day: "numeric",
           })
@@ -91,7 +117,7 @@ export default function SymbolPage() {
   const priceStats = useMemo(() => {
     if (prices.length < 2) return null;
     const first = prices[0];
-    const last = prices[prices.length - 1];
+    const last = prices.at(-1)!;
     const changePct = ((last - first) / first) * 100;
     return { last, changePct };
   }, [prices]);
@@ -103,21 +129,19 @@ export default function SymbolPage() {
   const signal = useMemo(() => {
     if (!priceStats) return null;
 
-    if (priceStats.changePct > 5) {
+    if (priceStats.changePct > 5)
       return {
         label: "Bullish Signal",
         color: "text-green-400",
         bg: "bg-green-400/10",
       };
-    }
 
-    if (priceStats.changePct < -5) {
+    if (priceStats.changePct < -5)
       return {
         label: "Bearish Signal",
         color: "text-red-400",
         bg: "bg-red-400/10",
       };
-    }
 
     return {
       label: "Neutral Signal",
@@ -126,18 +150,83 @@ export default function SymbolPage() {
     };
   }, [priceStats]);
 
-  if (loading) {
+  /* =====================
+     CHART CONFIG (MEMO)
+  ====================== */
+
+  const chartData = useMemo(
+    () => ({
+      labels,
+      datasets: [
+        {
+          label: "Volume",
+          type: "bar" as const,
+          data: volumes,
+          backgroundColor: "rgba(0,255,163,0.12)",
+          yAxisID: "volume",
+        },
+        {
+          label: "Price",
+          data: prices,
+          borderColor: "#00FFA3",
+          borderWidth: 2.5,
+          tension: 0.35,
+          pointRadius: 0,
+          yAxisID: "price",
+        },
+      ],
+    }),
+    [labels, prices, volumes]
+  );
+
+  const chartOptions: ChartOptions<"line"> = useMemo(
+    () => ({
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: "rgba(0,0,0,0.9)",
+          displayColors: false,
+          callbacks: {
+            title: (items) => {
+              const i = items[0]?.dataIndex;
+              if (i == null || !rawDates[i]) return "";
+              return new Date(rawDates[i]).toLocaleString();
+            },
+            label: (item) => {
+              if (item.dataset.label === "Volume")
+                return `Volume: ${Number(item.raw).toLocaleString()}`;
+              return `Price: $${Number(item.raw).toFixed(6)}`;
+            },
+          },
+        },
+      },
+      scales: {
+        x: { display: false },
+        price: { display: false },
+        volume: { display: false, grid: { display: false } },
+      },
+    }),
+    [rawDates]
+  );
+
+  if (!symbol || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center text-gray-400">
-        Loading {SYMBOL}…
+        Loading…
       </div>
     );
   }
 
+  /* =====================
+     UI
+  ====================== */
+
   return (
     <div className="min-h-screen bg-black text-white px-6 py-14">
       <div className="max-w-6xl mx-auto">
-        {/* HEADER */}
         <div className="flex justify-between items-start mb-6">
           <div>
             <h1 className="text-4xl font-bold">{SYMBOL} Pulse</h1>
@@ -158,7 +247,6 @@ export default function SymbolPage() {
           )}
         </div>
 
-        {/* TIMEFRAMES */}
         <div className="flex gap-2 mb-6">
           {TIMEFRAMES.map((t) => (
             <button
@@ -175,71 +263,8 @@ export default function SymbolPage() {
           ))}
         </div>
 
-        {/* CHART */}
-        <div className="rounded-xl border border-white/10 bg-black/50 p-6">
-          <div className="h-[420px]">
-            <Chart
-              type="line"
-              data={{
-                labels,
-                datasets: [
-                  {
-                    label: "Volume",
-                    type: "bar",
-                    data: volumes,
-                    backgroundColor: "rgba(0,255,163,0.12)",
-                    yAxisID: "volume",
-                    barPercentage: 1,
-                    categoryPercentage: 1,
-                  },
-                  {
-                    label: "Price",
-                    data: prices,
-                    borderColor: "#00FFA3",
-                    borderWidth: 2.5,
-                    tension: 0.35,
-                    pointRadius: 0,
-                    yAxisID: "price",
-                  },
-                ],
-              }}
-              options={{
-                responsive: true,
-                maintainAspectRatio: false,
-                interaction: {
-                  mode: "index",
-                  intersect: false,
-                },
-                plugins: {
-                  legend: { display: false },
-                  tooltip: {
-                    backgroundColor: "rgba(0,0,0,0.9)",
-                    displayColors: false,
-                    callbacks: {
-                      title: (items) => {
-                        const i = items[0].dataIndex;
-                        return new Date(rawDates[i]).toLocaleString();
-                      },
-                      label: (item) => {
-                        if (item.dataset.label === "Volume") {
-                          return `Volume: ${Number(item.raw).toLocaleString()}`;
-                        }
-                        return `Price: $${Number(item.raw).toFixed(6)}`;
-                      },
-                    },
-                  },
-                },
-                scales: {
-                  x: { display: false },
-                  price: { display: false },
-                  volume: {
-                    display: false,
-                    grid: { display: false },
-                  },
-                },
-              }}
-            />
-          </div>
+        <div className="rounded-xl border border-white/10 bg-black/50 p-6 h-[420px]">
+          <Chart type="line" data={chartData} options={chartOptions} />
         </div>
 
         <button
