@@ -156,7 +156,7 @@ export default function SymbolPage() {
      CHART DATA (MIXED)
   ====================== */
 
-  const chartData: ChartData = useMemo(
+  const chartData: ChartData<"bar"> = useMemo(
     () => ({
       labels,
       datasets: [
@@ -182,7 +182,7 @@ export default function SymbolPage() {
     [labels, prices, volumes]
   );
 
-  const chartOptions: ChartOptions = useMemo(
+  const chartOptions: ChartOptions<"bar"> = useMemo(
     () => ({
       responsive: true,
       maintainAspectRatio: false,
@@ -268,8 +268,8 @@ export default function SymbolPage() {
         </div>
 
         <div className="rounded-xl border border-white/10 bg-black/50 p-6 h-[420px]">
-          {/* IMPORTANT: no `type` prop here */}
-          <Chart data={chartData} options={chartOptions} />
+          {/* Base type must exist for TS */}
+          <Chart type="bar" data={chartData} options={chartOptions} />
         </div>
 
         <button
