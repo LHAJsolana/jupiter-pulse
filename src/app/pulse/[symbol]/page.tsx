@@ -3,7 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Chart } from "react-chartjs-2";
-import type { ChartOptions, ChartData } from "chart.js";
+import type {
+  ChartOptions,
+  ChartData,
+  ChartTypeRegistry,
+} from "chart.js";
 
 import {
   Chart as ChartJS,
@@ -153,10 +157,10 @@ export default function SymbolPage() {
   }, [priceStats]);
 
   /* =====================
-     CHART DATA (MIXED)
+     CHART (MIXED, TS-SAFE)
   ====================== */
 
-  const chartData: ChartData<"bar"> = useMemo(
+  const chartData: ChartData<keyof ChartTypeRegistry> = useMemo(
     () => ({
       labels,
       datasets: [
@@ -182,7 +186,7 @@ export default function SymbolPage() {
     [labels, prices, volumes]
   );
 
-  const chartOptions: ChartOptions<"bar"> = useMemo(
+  const chartOptions: ChartOptions<keyof ChartTypeRegistry> = useMemo(
     () => ({
       responsive: true,
       maintainAspectRatio: false,
@@ -268,7 +272,6 @@ export default function SymbolPage() {
         </div>
 
         <div className="rounded-xl border border-white/10 bg-black/50 p-6 h-[420px]">
-          {/* Base type must exist for TS */}
           <Chart type="bar" data={chartData} options={chartOptions} />
         </div>
 
