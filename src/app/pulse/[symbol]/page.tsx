@@ -16,8 +16,21 @@ import {
   Filler,
 } from "chart.js";
 
+import {
+  saveAlert,
+  hasAlert,
+  triggerNotification,
+} from "../../lib/alertsEngine";
+
+import {
+  computeSmartMoneyIndex,
+  SmartMoneyResult,
+} from "../../lib/smartMoney";
+
+import { evaluateTokenAlerts } from "../../lib/autoAlerts";
+
 /* =====================
-   SAFE REGISTRATION
+   SAFE CHART REGISTRATION
 ===================== */
 
 let chartRegistered = false;
@@ -49,6 +62,12 @@ const TIMEFRAMES = [
 
 type PricePoint = [number, number];
 
+type RiskData = {
+  score: number;
+  level: "Low" | "Medium" | "High";
+  factors: string[];
+};
+
 export default function SymbolPage() {
   registerChart();
 
@@ -66,6 +85,10 @@ export default function SymbolPage() {
   const [days, setDays] = useState<number>(7);
   const [loading, setLoading] = useState<boolean>(true);
 
+  const [risk, setRisk] = useState<RiskData | null>(null);
+  const [smartMoney, setSmartMoney] =
+    useState<SmartMoneyResult | null>(null);
+
   /* =====================
      DATA LOADING
   ====================== */
@@ -73,9 +96,10 @@ export default function SymbolPage() {
   useEffect(() => {
     if (!apiSymbol) return;
     loadHistory(days);
+    loadRisk();
   }, [apiSymbol, days]);
 
-  async function loadHistory(days: number): Promise<void> {
+  async function loadHistory(days: number) {
     try {
       setLoading(true);
 
@@ -87,13 +111,8 @@ export default function SymbolPage() {
       const data: { prices?: PricePoint[] } = await res.json();
       if (!Array.isArray(data.prices)) return;
 
-      const pricesArr: number[] = data.prices.map(
-        (p: PricePoint) => p[1]
-      );
-
-      const datesArr: number[] = data.prices.map(
-        (p: PricePoint) => p[0]
-      );
+      const pricesArr = data.prices.map((p) => p[1]);
+      const datesArr = data.prices.map((p) => p[0]);
 
       setPrices(pricesArr);
       setRawDates(datesArr);
@@ -105,7 +124,7 @@ export default function SymbolPage() {
       );
 
       setLabels(
-        datesArr.map((d: number) =>
+        datesArr.map((d) =>
           new Date(d).toLocaleDateString("en-US", {
             month: "short",
             day: "numeric",
@@ -114,6 +133,18 @@ export default function SymbolPage() {
       );
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function loadRisk() {
+    try {
+      const res = await fetch(`/api/risk/${apiSymbol}`, {
+        cache: "no-store",
+      });
+      const data = await res.json();
+      setRisk(data);
+    } catch {
+      setRisk(null);
     }
   }
 
@@ -130,37 +161,39 @@ export default function SymbolPage() {
   }, [prices]);
 
   /* =====================
-     SIGNAL (STABLE)
+     SMART MONEY INDEX
   ====================== */
 
-  const signal = useMemo(() => {
-    if (!priceStats) return null;
+  useEffect(() => {
+    if (!priceStats || !risk) return;
 
-    if (priceStats.changePct > 5) {
-      return {
-        label: "Bullish Signal",
-        color: "text-green-400",
-        bg: "bg-green-400/10",
-      };
-    }
+    const signalConfidence =
+      priceStats.changePct > 6
+        ? 75
+        : priceStats.changePct < -6
+        ? 70
+        : 60;
 
-    if (priceStats.changePct < -5) {
-      return {
-        label: "Bearish Signal",
-        color: "text-red-400",
-        bg: "bg-red-400/10",
-      };
-    }
+    const smi = computeSmartMoneyIndex({
+      priceChangePct: priceStats.changePct,
+      riskScore: risk.score,
+      signalConfidence,
+    });
 
-    return {
-      label: "Neutral Signal",
-      color: "text-yellow-400",
-      bg: "bg-yellow-400/10",
-    };
-  }, [priceStats]);
+    setSmartMoney(smi);
+  }, [priceStats, risk]);
 
   /* =====================
-     CHART CONFIG (MEMO)
+     AUTO ALERTS (🔥)
+  ====================== */
+
+  useEffect(() => {
+    if (!smartMoney || !SYMBOL) return;
+    evaluateTokenAlerts(SYMBOL, smartMoney);
+  }, [smartMoney, SYMBOL]);
+
+  /* =====================
+     CHART CONFIG
   ====================== */
 
   const chartData = useMemo(
@@ -188,39 +221,16 @@ export default function SymbolPage() {
     [labels, prices, volumes]
   );
 
-  const chartOptions: ChartOptions<"line"> = useMemo(
-    () => ({
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: { mode: "index", intersect: false },
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          backgroundColor: "rgba(0,0,0,0.9)",
-          displayColors: false,
-          callbacks: {
-            title: (items) => {
-              const i = items[0]?.dataIndex;
-              if (i == null || rawDates[i] == null) return "";
-              return new Date(rawDates[i]).toLocaleString();
-            },
-            label: (item) => {
-              if (item.dataset.label === "Volume") {
-                return `Volume: ${Number(item.raw).toLocaleString()}`;
-              }
-              return `Price: $${Number(item.raw).toFixed(6)}`;
-            },
-          },
-        },
-      },
-      scales: {
-        x: { display: false },
-        price: { display: false },
-        volume: { display: false, grid: { display: false } },
-      },
-    }),
-    [rawDates]
-  );
+  const chartOptions: ChartOptions<"line"> = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { display: false },
+      price: { display: false },
+      volume: { display: false },
+    },
+  };
 
   if (!symbol || loading) {
     return (
@@ -237,6 +247,7 @@ export default function SymbolPage() {
   return (
     <div className="min-h-screen bg-black text-white px-6 py-14">
       <div className="max-w-6xl mx-auto">
+        {/* HEADER */}
         <div className="flex justify-between items-start mb-6">
           <div>
             <h1 className="text-4xl font-bold">{SYMBOL} Pulse</h1>
@@ -248,24 +259,70 @@ export default function SymbolPage() {
             )}
           </div>
 
-          {signal && (
-            <div
-              className={`px-4 py-2 rounded-full text-sm font-semibold ${signal.bg} ${signal.color}`}
-            >
-              {signal.label}
-            </div>
-          )}
+          <button
+            onClick={() => {
+              if (hasAlert("TOKEN", SYMBOL)) return;
+
+              saveAlert({
+                id: crypto.randomUUID(),
+                type: "TOKEN",
+                target: SYMBOL,
+                condition: "smart-money",
+                createdAt: Date.now(),
+              });
+
+              triggerNotification(
+                "Token Alert Added",
+                `Auto alerts enabled for ${SYMBOL}`
+              );
+            }}
+            className="px-4 py-2 rounded-full border border-white/10 hover:border-green-400 transition text-sm"
+          >
+            Follow {SYMBOL}
+          </button>
         </div>
 
+        {/* SMART MONEY INDEX */}
+        {smartMoney && (
+          <div className="mb-6 p-5 rounded-xl border border-white/10">
+            <div className="text-sm text-gray-400">
+              Smart Money Index
+            </div>
+            <div className="flex items-end gap-3 mt-1">
+              <div className="text-4xl font-bold">
+                {smartMoney.score}
+              </div>
+              <div
+                className={`text-sm ${
+                  smartMoney.bias === "Bullish"
+                    ? "text-green-400"
+                    : smartMoney.bias === "Bearish"
+                    ? "text-red-400"
+                    : "text-gray-300"
+                }`}
+              >
+                {smartMoney.bias}
+              </div>
+            </div>
+
+            <div className="mt-3 text-xs text-gray-400">
+              Momentum: {smartMoney.breakdown.momentum} ·
+              Signal: {smartMoney.breakdown.signalStrength} ·
+              Risk Adj: {smartMoney.breakdown.riskAdjustment}
+            </div>
+          </div>
+        )}
+
+        {/* TIMEFRAMES */}
         <div className="flex gap-2 mb-6">
           {TIMEFRAMES.map((t) => (
             <button
               key={t.days}
               onClick={() => setDays(t.days)}
-              className={`px-4 py-1.5 rounded-full text-sm transition ${
+              className={`px-4 py-1.5 rounded-full text-sm ${
                 days === t.days
                   ? "bg-green-400 text-black"
-                  : "border border-white/10 text-gray-400 hover:text-white"
+                  : "border border-white/10 text-gray-400"
               }`}
             >
               {t.label}
@@ -273,6 +330,7 @@ export default function SymbolPage() {
           ))}
         </div>
 
+        {/* CHART */}
         <div className="rounded-xl border border-white/10 bg-black/50 p-6 h-[420px]">
           <Chart type="line" data={chartData} options={chartOptions} />
         </div>
@@ -281,7 +339,7 @@ export default function SymbolPage() {
           onClick={() => router.back()}
           className="mt-6 text-gray-400 underline"
         >
-          ← Back to Pulse
+          ← Back
         </button>
       </div>
     </div>
