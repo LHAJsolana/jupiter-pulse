@@ -1,135 +1,118 @@
-<<<<<<< HEAD
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
-
-## Getting Started
-
-First, run the development server:
-
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-=======
 ⚡ Jupiter Pulse
 
-Jupiter Pulse is an experimental, read-only signal layer that surfaces the real-time heartbeat of the Solana ecosystem using Jupiter pricing infrastructure.
+Jupiter Pulse is a **read-only, real-time observability layer** for the Solana ecosystem, built on top of **Jupiter pricing & routing infrastructure**.
 
-It focuses on market context, not trading — helping builders, traders, and ecosystem participants quickly understand what’s moving right now without noise.
+It focuses on **market context, flow, and behavior**, not execution — helping builders, traders, and ecosystem participants quickly understand **what’s moving, why it’s moving, and how capital is behaving**.
 
-Charts show price.
-Pulse shows signal.
+> Charts show price.  
+> **Pulse shows signal.**
 
-✨ What Jupiter Pulse Is
+---
 
-A lightweight market observability dashboard
+## ✨ What Jupiter Pulse Is
 
-Real-time price signals for key Solana assets
+- A **crypto-native market intelligence dashboard**
+- Real-time prices, swap flow, and behavioral signals
+- Designed for **speed, clarity, and low noise**
+- Built in public as an experimental but serious tool
 
-Designed for speed, clarity, and reliability
+---
 
-Built in public as an experimental tool
+## 🚫 What It Is NOT
 
-🚫 What It Is Not
+- ❌ No trading
+- ❌ No wallet connection
+- ❌ No custody
+- ❌ No financial advice
 
-No trading
+Jupiter Pulse is **read-only** and **informational**.
 
-No wallet connection
+---
 
-No custody
+## 🚀 Core Features
 
-No financial advice
+### 📊 Live Prices (`/pulse`)
+- Real-time token prices (SOL, JUP, WIF, BONK, etc.)
+- Freshness detection with fallback handling
+- Signal-first UI (clean, minimal, no clutter)
 
-🚀 Features
+### 🔁 Live Swap Pulse (`/liveswaps`)
+- Real-time whale swaps across Jupiter routes
+- Route dominance (Meteora, Raydium, Orca, Phoenix)
+- Capital flow intelligence, not charts
 
-Real-time price display (SOL, JUP, BONK, WIF)
+### 📡 Market Signals (`/signals`)
+- Smart-money & momentum signals
+- Risk-adjusted confidence scores
+- Designed for **context**, not entries
 
-Freshness detection with automatic fallback handling
+### 🧠 Wallet Review (`/wallet-review`)
+- Paste a wallet address → analyze behavior
+- Real swap history (Helius-powered)
+- Realized PnL (FIFO)
+- Best & worst trades
+- Behavioral insights & improvement tips  
+- Missed-money analysis (planned via candle data)
 
-Signal-first UI (no charts, no clutter)
+---
 
-Clean dark interface optimized for focus
+## 🧪 Status
 
-Public Jupiter pricing infrastructure consumption
-
-🧪 Status
-
-Experimental — v0.1
+**Experimental — v0.x**
 
 This project is actively evolving.
-Data availability may vary depending on upstream API health.
 
 Expect:
+- Rapid UI/UX iteration
+- Feature expansion
+- Occasional incomplete data (upstream dependent)
 
-Occasional N/A values
+The goal is **accuracy > hype**.
 
-Visual and UX iteration
+---
 
-Rapid improvements
+## 🛠 Tech Stack
 
-🛠 Tech Stack
+- **Next.js (App Router, Turbopack)**
+- React + TypeScript
+- Tailwind CSS (dark, dashboard-first UI)
+- Jupiter public pricing & routing APIs
+- Solana-native data sources
+- Helius (enhanced transactions for wallet analysis)
 
-Next.js 16 (App Router, Turbopack)
+---
 
-React
+## 🧠 Design Philosophy
 
-TypeScript
+- Signal over noise
+- Readability over decoration
+- Crypto-native UX (not Web2 landing pages)
+- Honest data (no fake numbers, no overclaiming)
 
-Jupiter public price APIs
+---
 
-Solana-native data sources
+## 🧩 Powered By
 
-🧠 Roadmap
+- **Jupiter** — pricing & routing infrastructure  
+- **Solana** — execution layer & ecosystem  
 
-Server-side stable price proxy
+---
 
-Improved freshness & recovery logic
+## 👤 Author
 
-Percentage change indicators
-
-Mobile-first refinements
-
-Additional Solana-native signals
-
-🧩 Powered By
-
-Jupiter :pricing & routing infrastructure
-
-Solana : execution & ecosystem
-
-👤 Author
-
-Built by @lhajsol
-Experimental Solana ecosystem tooling
+Built by **@lhajsol**  
+Experimental Solana ecosystem tooling  
 Built in public • Open infrastructure • Read-only
 
-⚠️ Disclaimer
+---
 
-Jupiter Pulse is an experimental informational tool.
-It does not constitute financial advice, investment recommendations, or trading signals.
->>>>>>> 76f309ea5562e9722ad3ec67713b00c43c856ee9
+## ⚠️ Disclaimer
+
+Jupiter Pulse is an **experimental informational tool**.
+
+It does **not** constitute:
+- Financial advice
+- Investment recommendations
+- Trading signals
+
+Use at your own discretion.
