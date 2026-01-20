@@ -12,7 +12,6 @@ export async function GET() {
     const res = await fetch(url, {
       cache: "no-store",
       headers: {
-        // REQUIRED for CoinGecko reliability
         "User-Agent": "JupiterPulse/1.0 (contact: dev@jupiterpulse.app)",
         "Accept": "application/json",
       },
@@ -20,36 +19,22 @@ export async function GET() {
 
     if (!res.ok) {
       const text = await res.text();
-      console.error("❌ CoinGecko Market Error:", res.status, text);
-
-      return NextResponse.json(
-        { error: "CoinGecko market fetch failed" },
-        { status: 502 }
-      );
+      return NextResponse.json({ error: "CoinGecko market fetch failed" }, { status: 502 });
     }
 
     const data = await res.json();
 
     const prices = Object.entries(idMap).map(([symbol, id]) => {
       const token = data[id];
-
       return {
         symbol,
-        price:
-          typeof token?.usd === "number" ? token.usd : null,
-        change24h:
-          typeof token?.usd_24h_change === "number"
-            ? token.usd_24h_change
-            : null,
+        price: token?.usd ?? null,
+        change24h: token?.usd_24h_change ?? null,
       };
     });
 
-    return NextResponse.json(prices, { status: 200 });
-  } catch (e) {
-    console.error("🔥 Market API Fatal Error:", e);
-    return NextResponse.json(
-      { error: "Internal market error" },
-      { status: 500 }
-    );
+    return NextResponse.json(prices);
+  } catch {
+    return NextResponse.json({ error: "Internal market error" }, { status: 500 });
   }
 }

@@ -26,60 +26,21 @@ export default function SignalsPage() {
   return (
     <div className="min-h-screen bg-black text-white px-6 py-16">
       <div className="max-w-6xl mx-auto">
+        <h1 className="text-4xl font-extrabold">📡 Live Signals</h1>
 
-        {/* HEADER */}
-        <div className="mb-10">
-          <h1 className="text-4xl font-extrabold">📡 Live Signals</h1>
-          <p className="text-gray-400 mt-2">
-            Smart Money & risk-adjusted momentum signals
-          </p>
-        </div>
-
-        {/* SIGNALS GRID */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-10">
           {SIGNALS.map((s) => (
             <Link
               key={s.symbol}
               href={`/pulse/${s.symbol}`}
-              className="p-6 rounded-2xl border border-white/10 bg-white/5 hover:border-[#00FFA3]/40 transition"
+              className="p-6 rounded-2xl border border-white/10 bg-white/5"
             >
-              <div className="flex justify-between items-start">
-                <div>
-                  <div className="text-2xl font-bold">{s.symbol}</div>
-                  <div
-                    className={`text-sm mt-1 font-semibold ${biasColor(
-                      s.bias
-                    )}`}
-                  >
-                    {s.bias} Signal
-                  </div>
-                </div>
-
-                <div className="text-right">
-                  <div className="text-3xl font-bold">{s.score}</div>
-                  <div className="text-xs text-gray-400">
-                    Confidence {s.confidence}%
-                  </div>
-                </div>
-              </div>
-
-              {/* SCORE BAR */}
-              <div className="mt-4 h-2 rounded-full bg-white/10 overflow-hidden">
-                <div
-                  className="h-full bg-[#00FFA3]"
-                  style={{ width: `${s.score}%` }}
-                />
-              </div>
-
-              <div className="mt-3 text-sm text-gray-400">
-                View pulse →
+              <div className="text-2xl font-bold">{s.symbol}</div>
+              <div className={`text-sm ${biasColor(s.bias)}`}>
+                {s.bias}
               </div>
             </Link>
           ))}
-        </div>
-
-        <div className="mt-14 text-sm text-gray-500">
-          Signals are derived from Smart Money Index & risk metrics.
         </div>
       </div>
     </div>

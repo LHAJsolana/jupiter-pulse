@@ -8,20 +8,16 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        {/* Basic SEO only */}
         <title>Jupiter Pulse ⚡</title>
         <meta
           name="description"
-          content="Real-time momentum across Solana markets."
+          content="Real-time observability across the Jupiter ecosystem."
         />
-
-        {/* Explicitly disable Twitter cards */}
         <meta name="twitter:card" content="none" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
       </head>
 
-      <body className="min-h-screen bg-white text-black">
-        {children}
-      </body>
+      <body className="min-h-screen bg-black text-white">{children}</body>
     </html>
   );
 }

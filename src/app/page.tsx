@@ -20,7 +20,6 @@ export default function HomePage() {
         </Link>
       </header>
 
-      {/* CONTENT WRAPPER (keeps everything tight + centered) */}
       <main className="mx-auto w-full max-w-7xl px-6">
         {/* HERO */}
         <section className="pt-10 pb-6 text-center">
@@ -32,7 +31,7 @@ export default function HomePage() {
 
           <p className="mt-4 text-gray-400 text-lg md:text-xl max-w-3xl mx-auto">
             Jupiter Pulse is a real-time observability dashboard for Solana tokens —
-            live prices, historical charts, signals, and smart money flow.
+            live prices, charts, signals, and wallet intelligence.
           </p>
         </section>
 
@@ -48,8 +47,8 @@ export default function HomePage() {
         </section>
 
         {/* CARDS */}
-        <section className="pt-4 pb-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <section className="pt-4 pb-3">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <Link href="/pulse" className="group">
               <Card
                 title="Live Prices"
@@ -74,10 +73,18 @@ export default function HomePage() {
                 icon="⚡"
               />
             </Link>
+
+            <Link href="/missed-money" className="group">
+              <Card
+                title="Missed Money (Phase 2)"
+                desc="Find value leaks: routing, limits, funding, idle capital."
+                icon="💸"
+                highlightAlt
+              />
+            </Link>
           </div>
         </section>
 
-        {/* FOOTER (tight under cards) */}
         <footer className="py-4 text-gray-500 text-sm text-center">
           Built by{" "}
           <a
@@ -100,51 +107,35 @@ function Card({
   desc,
   icon,
   highlight,
+  highlightAlt,
 }: {
   title: string;
   desc: string;
   icon: string;
   highlight?: boolean;
+  highlightAlt?: boolean;
 }) {
+  const cls = [
+    "relative rounded-2xl border p-6 md:p-7 h-[160px] md:h-[175px]",
+    "bg-black/50 backdrop-blur",
+    "transition-all duration-300",
+    "hover:scale-[1.015] hover:border-white/25",
+    highlight
+      ? "border-[#14F195]/60 bg-[#14F195]/5 shadow-[0_0_45px_rgba(20,241,149,0.18)]"
+      : highlightAlt
+        ? "border-yellow-400/50 bg-yellow-400/5 shadow-[0_0_45px_rgba(250,204,21,0.12)]"
+        : "border-white/10",
+  ].join(" ");
+
   return (
-    <div
-      className={[
-        "relative rounded-2xl border p-6 md:p-7 h-[160px] md:h-[175px]",
-        "bg-black/50 backdrop-blur",
-        "transition-all duration-300",
-        "hover:scale-[1.015] hover:border-white/25",
-        highlight
-          ? "border-[#14F195]/60 bg-[#14F195]/5 shadow-[0_0_45px_rgba(20,241,149,0.18)]"
-          : "border-white/10",
-      ].join(" ")}
-    >
-      {/* top row */}
+    <div className={cls}>
       <div className="flex items-start justify-between">
         <div className="text-3xl">{icon}</div>
-
-        {highlight ? (
-          <div className="px-3 py-1 rounded-full text-xs font-semibold bg-[#14F195] text-black">
-            LIVE
-          </div>
-        ) : (
-          <div className="opacity-0 group-hover:opacity-100 transition text-xs text-gray-400">
-            Explore →
-          </div>
-        )}
       </div>
 
-      {/* body */}
       <div className="mt-3 text-left">
-        <h3 className="text-xl md:text-2xl font-bold leading-tight">
-          {title} {highlight && <span className="text-[#14F195]">⚡</span>}
-        </h3>
-
-        <p className="mt-2 text-sm text-gray-400 leading-relaxed">{desc}</p>
-      </div>
-
-      {/* bottom CTA */}
-      <div className="absolute bottom-4 left-6 text-sm text-gray-400 group-hover:text-[#14F195] transition">
-        Explore →
+        <h3 className="text-xl md:text-2xl font-bold">{title}</h3>
+        <p className="mt-2 text-sm text-gray-400">{desc}</p>
       </div>
     </div>
   );

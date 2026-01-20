@@ -1,7 +1,7 @@
 // src/app/wallet-review/page.tsx
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
 type Trade = {
@@ -44,8 +44,16 @@ type ReviewResponse = {
   meta?: {
     source?: string;
     txFetched?: number;
+    pagesFetched?: number;
+    supportsLimit?: boolean | null;
+    supportsBefore?: boolean | null;
     swapsDetected?: number;
+    pricedSwaps?: number;
+    unpricedSwaps?: number;
+    swapsFromEvents?: number;
+    swapsFromType?: number;
     realizedSells?: number;
+    solPriceUsed?: number;
     note?: string;
   };
 };
@@ -61,10 +69,12 @@ function pct(n: number) {
   return `${sign}${n.toFixed(2)}%`;
 }
 
-function shortAddr(a: string) {
-  if (!a) return "";
-  if (a.length <= 12) return a;
-  return `${a.slice(0, 6)}…${a.slice(-4)}`;
+// Simple Solana address check (base58-ish + length)
+function isLikelySolanaAddress(s: string) {
+  const a = s.trim();
+  if (a.length < 32 || a.length > 44) return false;
+  // base58 characters only (no 0,O,I,l)
+  return /^[1-9A-HJ-NP-Za-km-z]+$/.test(a);
 }
 
 function Pill({
@@ -126,36 +136,7 @@ function StatCard({
   );
 }
 
-function RowTrade({
-  t,
-  mode,
-}: {
-  t: Trade;
-  mode: "pnl" | "missed_up" | "missed_down";
-}) {
-  const main =
-    mode === "pnl"
-      ? t.pnlUsd
-      : mode === "missed_up"
-      ? t.missedUpsideUsd
-      : t.ateDrawdownUsd;
-
-  const mainLabel =
-    mode === "pnl"
-      ? money(main)
-      : mode === "missed_up"
-      ? `Missed ${money(main)}`
-      : `Ate ${money(main)}`;
-
-  const mainTone =
-    mode === "pnl"
-      ? t.pnlUsd >= 0
-        ? "text-green-300"
-        : "text-red-300"
-      : mode === "missed_up"
-      ? "text-amber-300"
-      : "text-orange-300";
-
+function RowTrade({ t }: { t: Trade }) {
   return (
     <div className="flex items-center justify-between gap-4 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
       <div className="min-w-0">
@@ -170,69 +151,69 @@ function RowTrade({
       </div>
 
       <div className="text-right">
-        <div className={["text-sm font-extrabold", mainTone].join(" ")}>
-          {mainLabel}
+        <div className={["text-sm font-extrabold", t.pnlUsd >= 0 ? "text-green-300" : "text-red-300"].join(" ")}>
+          {money(t.pnlUsd)}
         </div>
-        {mode === "pnl" && (
-          <div
-            className={[
-              "text-xs",
-              t.pnlPct >= 0 ? "text-green-200/70" : "text-red-200/70",
-            ].join(" ")}
-          >
-            {pct(t.pnlPct)}
-          </div>
-        )}
+        <div className={["text-xs", t.pnlPct >= 0 ? "text-green-200/70" : "text-red-200/70"].join(" ")}>
+          {pct(t.pnlPct)}
+        </div>
       </div>
     </div>
   );
 }
 
-function EmptyBox({
-  title,
-  desc,
-}: {
-  title: string;
-  desc: string;
-}) {
-  return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
-      <div className="text-sm font-extrabold">{title}</div>
-      <div className="mt-1 text-sm text-white/55">{desc}</div>
-    </div>
-  );
-}
+const RECENT_KEY = "jp_wallet_review_recent";
 
 export default function WalletReviewPage() {
   const [address, setAddress] = useState("");
   const [range, setRange] = useState<"7D" | "30D" | "90D" | "ALL">("30D");
+
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<ReviewResponse | null>(null);
   const [err, setErr] = useState<string | null>(null);
+
   const [tipIndex, setTipIndex] = useState(0);
+  const [showMeta, setShowMeta] = useState(false);
+  const [openFull, setOpenFull] = useState(false);
+
+  const [recent, setRecent] = useState<string[]>([]);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(RECENT_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) setRecent(parsed.slice(0, 6).map(String));
+      }
+    } catch {}
+  }, []);
+
+  function saveRecent(addr: string) {
+    const a = addr.trim();
+    if (!a) return;
+    const next = [a, ...recent.filter((x) => x !== a)].slice(0, 6);
+    setRecent(next);
+    try {
+      localStorage.setItem(RECENT_KEY, JSON.stringify(next));
+    } catch {}
+  }
 
   const currentTip = useMemo(() => {
     if (!data?.tips?.length) return null;
     return data.tips[tipIndex % data.tips.length];
   }, [data, tipIndex]);
 
-  const hasRealized = useMemo(() => {
-    const rs = data?.meta?.realizedSells ?? 0;
-    return rs > 0 && (data?.topTrades?.length || data?.worstTrades?.length);
-  }, [data]);
+  const isValid = useMemo(() => isLikelySolanaAddress(address), [address]);
 
   async function analyze() {
     setErr(null);
+
+    const a = address.trim();
+    if (!a) return setErr("Paste a wallet address first.");
+    if (!isLikelySolanaAddress(a)) return setErr("That doesn’t look like a valid Solana address.");
+
     setLoading(true);
-
     try {
-      const a = address.trim();
-      if (!a) {
-        setErr("Paste a wallet address first.");
-        setLoading(false);
-        return;
-      }
-
       const res = await fetch(
         `/api/wallet-review?address=${encodeURIComponent(a)}&range=${range}`,
         { cache: "no-store" }
@@ -242,6 +223,15 @@ export default function WalletReviewPage() {
 
       setData(json);
       setTipIndex(0);
+      setShowMeta(false);
+      setOpenFull(false);
+      saveRecent(a);
+
+      // auto-scroll down to results so page doesn’t feel empty
+      setTimeout(() => {
+        const el = document.getElementById("wallet-review-results");
+        el?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 50);
     } catch (e: any) {
       setErr(e?.message || "Something went wrong");
     } finally {
@@ -249,246 +239,371 @@ export default function WalletReviewPage() {
     }
   }
 
+  function clearAll() {
+    setAddress("");
+    setErr(null);
+    setData(null);
+    setTipIndex(0);
+    setShowMeta(false);
+    setOpenFull(false);
+  }
+
+  function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter") analyze();
+  }
+
+  const priced = data?.meta?.pricedSwaps ?? 0;
+  const unpriced = data?.meta?.unpricedSwaps ?? 0;
+  const hasAnySwaps = (data?.meta?.swapsDetected ?? 0) > 0;
+
   return (
-    <div className="max-w-6xl mx-auto px-6 pt-8 pb-14">
-      {/* Header (CoinStats-ish) */}
-      <div className="flex items-start justify-between gap-4">
+    <div className="max-w-6xl mx-auto px-6 pt-10 pb-14">
+      <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight">
             Wallet Review <span className="text-green-300">⚡</span>
           </h1>
           <p className="mt-2 text-sm text-white/60">
-            Real on-chain wallet performance (FIFO realized PnL). Missed-money is Phase 2.
+            Paste a wallet address to surface best trades, worst trades, and “missed money” patterns.
           </p>
-
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span className="text-[11px] px-2 py-1 rounded-full border border-white/10 bg-white/[0.03] text-white/60">
-              Source: {data?.meta?.source || "—"}
-            </span>
-            <span className="text-[11px] px-2 py-1 rounded-full border border-white/10 bg-white/[0.03] text-white/60">
-              Swaps: {data?.meta?.swapsDetected ?? "—"}
-            </span>
-            <span className="text-[11px] px-2 py-1 rounded-full border border-white/10 bg-white/[0.03] text-white/60">
-              Realized sells: {data?.meta?.realizedSells ?? "—"}
-            </span>
-          </div>
         </div>
 
-        <div className="flex flex-col items-end gap-2">
-          <Link href="/wallets" className="text-sm text-white/70 hover:text-white transition">
-            Wallet Leaderboard →
-          </Link>
-          {data?.summary?.address && (
-            <div className="text-xs text-white/50">
-              Wallet: <span className="text-white/80 font-semibold">{data.summary.address}</span>
-            </div>
-          )}
-        </div>
+        <Link href="/wallets" className="text-sm text-white/70 hover:text-white transition">
+          Wallet Leaderboard →
+        </Link>
       </div>
 
-      {/* Input bar (tight + pro) */}
-      <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-4 md:p-5">
-        <div className="flex flex-col md:flex-row md:items-center gap-3">
+      {/* FORM */}
+      <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-5 md:p-6">
+        <div className="flex flex-col md:flex-row md:items-end gap-4">
           <div className="flex-1">
-            <div className="text-[11px] font-semibold text-white/60 mb-2">
-              Wallet address
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-xs font-semibold text-white/60">Wallet address</div>
+
+              {address.trim().length > 0 && (
+                <div className={["text-xs", isValid ? "text-green-300" : "text-amber-300"].join(" ")}>
+                  {isValid ? "Valid address" : "Check address"}
+                </div>
+              )}
             </div>
+
             <input
               value={address}
               onChange={(e) => setAddress(e.target.value)}
+              onKeyDown={onKeyDown}
               placeholder="Paste Solana wallet address"
-              className="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-white placeholder:text-white/35 outline-none focus:border-white/20"
+              className={[
+                "w-full rounded-xl border bg-black/40 px-4 py-3 text-sm text-white placeholder:text-white/35 outline-none transition",
+                err ? "border-red-400/40 focus:border-red-400/60" : "border-white/10 focus:border-white/20",
+              ].join(" ")}
             />
+
+            {/* Recent chips */}
+            {recent.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                <div className="text-xs text-white/45 mr-1">Recent:</div>
+                {recent.map((r) => (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => setAddress(r)}
+                    className="text-xs px-2.5 py-1 rounded-full border border-white/10 bg-white/5 hover:bg-white/10 text-white/70 transition"
+                    title={r}
+                  >
+                    {r.slice(0, 6)}…{r.slice(-4)}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
-          <div className="flex items-center gap-2 md:mt-6">
+          <div className="flex items-center gap-2 flex-wrap">
             <Pill active={range === "7D"} onClick={() => setRange("7D")}>7D</Pill>
             <Pill active={range === "30D"} onClick={() => setRange("30D")}>30D</Pill>
             <Pill active={range === "90D"} onClick={() => setRange("90D")}>90D</Pill>
             <Pill active={range === "ALL"} onClick={() => setRange("ALL")}>ALL</Pill>
           </div>
 
-          <button
-            onClick={analyze}
-            disabled={loading}
-            className={[
-              "md:mt-6 px-4 py-3 rounded-xl font-semibold text-sm",
-              "border border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20 transition",
-              "disabled:opacity-60 disabled:cursor-not-allowed",
-            ].join(" ")}
-          >
-            {loading ? "Analyzing…" : "Analyze →"}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={clearAll}
+              type="button"
+              className="px-4 py-3 rounded-xl font-semibold text-sm border border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20 transition"
+            >
+              Clear
+            </button>
+
+            <button
+              onClick={analyze}
+              disabled={loading || !isValid}
+              className={[
+                "px-4 py-3 rounded-xl font-semibold text-sm",
+                "border border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20 transition",
+                "disabled:opacity-50 disabled:cursor-not-allowed",
+              ].join(" ")}
+            >
+              {loading ? "Analyzing…" : "Analyze →"}
+            </button>
+          </div>
         </div>
 
         {err && <div className="mt-3 text-sm text-red-300">{err}</div>}
+
+        {!err && address.trim() && !isValid && (
+          <div className="mt-3 text-xs text-amber-200/80">
+            Solana addresses are base58 (no 0/O/I/l) and usually 32–44 chars.
+          </div>
+        )}
       </div>
 
-      {/* Dashboard */}
-      <div className="mt-6">
-        {!data ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <EmptyBox
-              title="Paste a wallet to start"
-              desc="We’ll pull swap activity from Helius enhanced transactions and compute FIFO realized PnL."
-            />
-            <EmptyBox
-              title="How PnL works here"
-              desc="PnL is only realized on SELL swaps. If a wallet only buys/holds, realized PnL will be $0."
-            />
+      {/* RESULTS INLINE (fixes “empty page” feeling) */}
+      <div id="wallet-review-results" className="mt-6">
+        {loading && (
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 animate-pulse">
+            <div className="h-4 w-44 bg-white/10 rounded" />
+            <div className="mt-3 h-3 w-80 bg-white/10 rounded" />
+            <div className="mt-6 grid grid-cols-2 lg:grid-cols-6 gap-3">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="h-20 rounded-2xl bg-white/[0.04] border border-white/10" />
+              ))}
+            </div>
           </div>
-        ) : (
-          <>
-            {/* Stats */}
-            <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
+        )}
+
+        {!loading && data && (
+          <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5 md:p-6">
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+              <div className="min-w-0">
+                <div className="text-xs text-white/50">Wallet Review • {data.summary.range}</div>
+                <div className="mt-1 text-lg font-extrabold tracking-tight truncate">
+                  {data.summary.address}
+                </div>
+
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <span className="text-[11px] px-2 py-1 rounded-full border border-white/10 bg-white/[0.03] text-white/60">
+                    Swaps: {data.meta?.swapsDetected ?? 0}
+                  </span>
+                  <span className="text-[11px] px-2 py-1 rounded-full border border-white/10 bg-white/[0.03] text-white/60">
+                    Priced: {priced}
+                  </span>
+                  <span className="text-[11px] px-2 py-1 rounded-full border border-white/10 bg-white/[0.03] text-white/60">
+                    Unpriced: {unpriced}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setTipIndex((i) => i + 1)}
+                  className="px-3 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition text-sm text-white/80"
+                >
+                  Next tip →
+                </button>
+
+                <button
+                  onClick={() => setOpenFull(true)}
+                  className="px-3 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition text-sm text-white/80"
+                >
+                  Open full report →
+                </button>
+              </div>
+            </div>
+
+            {/* Summary */}
+            <div className="mt-5 grid grid-cols-2 lg:grid-cols-6 gap-3">
               <StatCard
                 label="Realized PnL"
                 value={money(data.summary.realizedPnl)}
                 tone={data.summary.realizedPnl >= 0 ? "green" : "red"}
                 sub="FIFO on sells"
               />
-              <StatCard
-                label="Win Rate"
-                value={`${data.summary.winRate}%`}
-                sub="Realized sells only"
-              />
-              <StatCard
-                label="Swaps Parsed"
-                value={String(data.meta?.swapsDetected ?? 0)}
-                sub="From enhanced txs"
-              />
-              <StatCard
-                label="Avg Hold"
-                value={`${data.summary.avgHoldHours}h`}
-                sub="From oldest lot"
-              />
-              <StatCard
-                label="Sold Early"
-                value={money(data.summary.missedUpsideTotal)}
-                tone="amber"
-                sub="Phase 2"
-              />
-              <StatCard
-                label="Bought Late"
-                value={money(data.summary.ateDrawdownTotal)}
-                tone="orange"
-                sub="Phase 2"
-              />
+              <StatCard label="Win Rate" value={`${data.summary.winRate}%`} sub="Realized sells" />
+              <StatCard label="Trades" value={String(data.summary.trades)} sub="Priced swaps only" />
+              <StatCard label="Avg Hold" value={`${data.summary.avgHoldHours}h`} sub="Oldest lot" />
+              <StatCard label="Sold Early" value={money(data.summary.missedUpsideTotal)} tone="amber" sub="Phase 2" />
+              <StatCard label="Bought Late" value={money(data.summary.ateDrawdownTotal)} tone="orange" sub="Phase 2" />
             </div>
 
-            {/* Honest empty state */}
-            {!hasRealized && (
-              <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-                  <div>
-                    <div className="text-sm font-extrabold">No realized sells detected</div>
-                    <div className="mt-1 text-sm text-white/55">
-                      This wallet hasn’t completed sell swaps in the selected range — realized PnL stays at $0.
-                      Try <span className="text-white/80 font-semibold">ALL</span> or use a wallet that actively trades.
-                    </div>
-                  </div>
-                  <div className="text-xs text-white/45">
-                    Wallet: <span className="text-white/70">{shortAddr(data.address)}</span>
-                  </div>
+            {/* Honest warning */}
+            {hasAnySwaps && priced === 0 && (
+              <div className="mt-4 rounded-2xl border border-amber-400/20 bg-amber-400/10 p-4">
+                <div className="text-sm font-extrabold text-amber-200">
+                  We detected swaps, but couldn’t price them
                 </div>
+                <div className="mt-1 text-sm text-amber-100/80">
+                  This usually happens when swaps don’t involve USDC/USDT or SOL legs (so USD value is missing).
+                  Try <span className="font-semibold">ALL</span>, or test a wallet that swaps vs SOL/USDC.
+                </div>
+                {data.meta?.solPriceUsed ? (
+                  <div className="mt-2 text-xs text-amber-100/70">
+                    SOL price used: ${Number(data.meta.solPriceUsed).toFixed(2)}
+                  </div>
+                ) : null}
               </div>
             )}
 
-            {/* Tables */}
-            <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Trades */}
+            <div className="mt-5 grid grid-cols-1 lg:grid-cols-2 gap-4">
               <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4 md:p-5">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-sm font-extrabold">Top Trades</div>
-                    <div className="text-xs text-white/55">Best realized PnL</div>
-                  </div>
-                </div>
-
+                <div className="text-sm font-extrabold">Top Trades</div>
+                <div className="text-xs text-white/55">Best realized PnL</div>
                 <div className="mt-4 grid gap-2">
                   {data.topTrades.length ? (
-                    data.topTrades.map((t) => <RowTrade key={t.id} t={t} mode="pnl" />)
+                    data.topTrades.map((t) => <RowTrade key={t.id} t={t} />)
                   ) : (
-                    <div className="text-sm text-white/55">
-                      No realized sell trades to rank yet.
-                    </div>
+                    <div className="text-sm text-white/55">No realized sells to rank yet.</div>
                   )}
                 </div>
               </div>
 
               <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4 md:p-5">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-sm font-extrabold">Worst Trades</div>
-                    <div className="text-xs text-white/55">Biggest realized losses</div>
-                  </div>
-                </div>
-
+                <div className="text-sm font-extrabold">Worst Trades</div>
+                <div className="text-xs text-white/55">Biggest realized losses</div>
                 <div className="mt-4 grid gap-2">
                   {data.worstTrades.length ? (
-                    data.worstTrades.map((t) => <RowTrade key={t.id} t={t} mode="pnl" />)
+                    data.worstTrades.map((t) => <RowTrade key={t.id} t={t} />)
                   ) : (
-                    <div className="text-sm text-white/55">
-                      No realized sell trades to rank yet.
-                    </div>
+                    <div className="text-sm text-white/55">No realized sells to rank yet.</div>
                   )}
                 </div>
               </div>
             </div>
 
-            {/* Phase 2 sections */}
-            <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4 md:p-5">
-                <div className="text-sm font-extrabold">Sold Early (Missed Upside)</div>
-                <div className="text-xs text-white/55">
-                  Requires candle data (Phase 2) — showing 0 for now.
-                </div>
-                <div className="mt-4">
-                  <div className="text-sm text-white/55">
-                    Coming soon: “after you sold, price ran +X%” with exact max candle.
-                  </div>
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4 md:p-5">
-                <div className="text-sm font-extrabold">Bought Late (Ate Drawdown)</div>
-                <div className="text-xs text-white/55">
-                  Requires candle data (Phase 2) — showing 0 for now.
-                </div>
-                <div className="mt-4">
-                  <div className="text-sm text-white/55">
-                    Coming soon: “after you bought, price dipped -Y%” using post-entry drawdown.
-                  </div>
-                </div>
-              </div>
+            {/* Suggestions */}
+            <div className="mt-4 rounded-2xl border border-white/10 bg-black/30 p-4">
+              <div className="text-xs font-semibold text-white/55">Suggestions</div>
+              <div className="mt-1 text-sm text-white/85">{currentTip || "No tips yet."}</div>
+              {data.meta?.note && <div className="mt-2 text-xs text-white/45">{data.meta.note}</div>}
             </div>
 
-            {/* Tips bar (CoinStats-ish sticky card, not modal) */}
-            <div className="mt-4 rounded-2xl border border-white/10 bg-black/30 backdrop-blur p-4 md:p-5">
-              <div className="flex items-start md:items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="text-[11px] font-semibold text-white/55">Suggestions</div>
-                  <div className="mt-1 text-sm text-white/85">
-                    {currentTip || "No tips yet."}
-                  </div>
-                  {data.meta?.note && (
-                    <div className="mt-2 text-[11px] text-white/45">{data.meta.note}</div>
-                  )}
-                </div>
-
-                <button
-                  onClick={() => setTipIndex((i) => i + 1)}
-                  className="shrink-0 px-3 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition text-sm text-white/80"
-                >
-                  Next tip →
-                </button>
-              </div>
+            {/* Debug meta toggle */}
+            <div className="mt-4">
+              <button
+                onClick={() => setShowMeta((s) => !s)}
+                className="text-xs text-white/60 hover:text-white transition"
+              >
+                {showMeta ? "Hide debug" : "Show debug"} →
+              </button>
+              {showMeta && (
+                <pre className="mt-3 text-xs text-white/60 rounded-2xl border border-white/10 bg-white/[0.03] p-4 overflow-auto">
+                  {JSON.stringify(data.meta || {}, null, 2)}
+                </pre>
+              )}
             </div>
-          </>
+          </div>
         )}
       </div>
 
+      {/* FULL REPORT OVERLAY (optional) */}
+      {openFull && data && (
+        <div className="fixed inset-0 z-50">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setOpenFull(false)} />
+
+          <div className="absolute inset-0 flex items-center justify-center p-4 md:p-8">
+            <div className="relative w-full max-w-6xl h-[92vh] rounded-3xl border border-white/10 bg-[#07090d] shadow-[0_30px_120px_rgba(0,0,0,0.85)] overflow-hidden">
+              <div className="flex items-center justify-between gap-3 px-5 md:px-7 py-4 border-b border-white/10">
+                <div className="min-w-0">
+                  <div className="text-xs text-white/50">Wallet Review • {data.summary.range}</div>
+                  <div className="text-lg font-extrabold tracking-tight truncate">{data.summary.address}</div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setTipIndex((i) => i + 1)}
+                    className="hidden md:inline-flex px-3 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition text-sm text-white/80"
+                  >
+                    Next tip →
+                  </button>
+                  <button
+                    onClick={() => setOpenFull(false)}
+                    className="px-3 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition text-sm"
+                  >
+                    Close ✕
+                  </button>
+                </div>
+              </div>
+
+              <div className="h-full overflow-y-auto pb-24">
+                <div className="px-5 md:px-7 pt-5 md:pt-7">
+                  <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
+                    <StatCard
+                      label="Realized PnL"
+                      value={money(data.summary.realizedPnl)}
+                      tone={data.summary.realizedPnl >= 0 ? "green" : "red"}
+                      sub="FIFO on sells"
+                    />
+                    <StatCard label="Win Rate" value={`${data.summary.winRate}%`} sub="Realized sells" />
+                    <StatCard label="Trades" value={String(data.summary.trades)} sub="Priced swaps only" />
+                    <StatCard label="Avg Hold" value={`${data.summary.avgHoldHours}h`} sub="Oldest lot" />
+                    <StatCard label="Sold Early" value={money(data.summary.missedUpsideTotal)} tone="amber" sub="Phase 2" />
+                    <StatCard label="Bought Late" value={money(data.summary.ateDrawdownTotal)} tone="orange" sub="Phase 2" />
+                  </div>
+
+                  <div className="mt-5 grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4 md:p-5">
+                      <div className="text-sm font-extrabold">Top Trades</div>
+                      <div className="text-xs text-white/55">Best realized PnL</div>
+                      <div className="mt-4 grid gap-2">
+                        {data.topTrades.length ? (
+                          data.topTrades.map((t) => <RowTrade key={t.id} t={t} />)
+                        ) : (
+                          <div className="text-sm text-white/55">No realized sells to rank yet.</div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4 md:p-5">
+                      <div className="text-sm font-extrabold">Worst Trades</div>
+                      <div className="text-xs text-white/55">Biggest realized losses</div>
+                      <div className="mt-4 grid gap-2">
+                        {data.worstTrades.length ? (
+                          data.worstTrades.map((t) => <RowTrade key={t.id} t={t} />)
+                        ) : (
+                          <div className="text-sm text-white/55">No realized sells to rank yet.</div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-4">
+                    <button
+                      onClick={() => setShowMeta((s) => !s)}
+                      className="text-xs text-white/60 hover:text-white transition"
+                    >
+                      {showMeta ? "Hide debug" : "Show debug"} →
+                    </button>
+                    {showMeta && (
+                      <pre className="mt-3 text-xs text-white/60 rounded-2xl border border-white/10 bg-white/[0.03] p-4 overflow-auto">
+                        {JSON.stringify(data.meta || {}, null, 2)}
+                      </pre>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="absolute left-0 right-0 bottom-0 border-t border-white/10 bg-black/40 backdrop-blur px-5 md:px-7 py-4">
+                <div className="flex items-start md:items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="text-xs font-semibold text-white/55">Suggestions</div>
+                    <div className="mt-1 text-sm text-white/85">{currentTip || "No tips yet."}</div>
+                    {data.meta?.note && <div className="mt-2 text-xs text-white/45">{data.meta.note}</div>}
+                  </div>
+
+                  <button
+                    onClick={() => setTipIndex((i) => i + 1)}
+                    className="shrink-0 px-3 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition text-sm text-white/80"
+                  >
+                    Next tip →
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="mt-10 text-xs text-white/40">
-        Built by @lhajsol • Powered by Jupiter & Solana ⚡
+        Tip: “Missed money” needs candle data (Phase 2).
       </div>
     </div>
   );
