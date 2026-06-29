@@ -1,16 +1,9 @@
 import { NextResponse } from "next/server";
-
-const MAP: Record<string, string> = {
-  SOL: "solana",
-  WIF: "dogwifcoin",
-  BONK: "bonk",
-  JUP: "jupiter-exchange-solana",
-  USDC: "usd-coin",
-};
+import { coingeckoIdBySymbol } from "@/lib/tokens";
 
 export async function GET() {
   try {
-    const ids = Object.values(MAP).join(",");
+    const ids = Object.values(coingeckoIdBySymbol).join(",");
 
     const res = await fetch(
       `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd&include_24hr_change=true`,
@@ -24,7 +17,7 @@ export async function GET() {
 
     const data = await res.json();
 
-    const result = Object.entries(MAP).map(([symbol, id]) => ({
+    const result = Object.entries(coingeckoIdBySymbol).map(([symbol, id]) => ({
       symbol,
       price: data[id]?.usd ?? 0,
       change: data[id]?.usd_24h_change ?? 0,

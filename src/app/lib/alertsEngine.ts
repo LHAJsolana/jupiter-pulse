@@ -4,7 +4,8 @@ export type AlertRule = {
   id: string;
   type: AlertType;
   target: string; // symbol or wallet address
-  condition: string;
+  condition: "watch" | "smart-money" | "price-above" | "price-below" | "large-swap" | string;
+  threshold?: number;
   createdAt: number;
 };
 
@@ -18,6 +19,10 @@ export function getAlerts(): AlertRule[] {
 
 export function saveAlert(alert: AlertRule) {
   const alerts = getAlerts();
+  const exists = alerts.some(
+    (a) => a.type === alert.type && a.target === alert.target && a.condition === alert.condition
+  );
+  if (exists) return;
   localStorage.setItem(
     STORAGE_KEY,
     JSON.stringify([...alerts, alert])
