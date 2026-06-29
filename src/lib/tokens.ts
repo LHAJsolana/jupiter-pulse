@@ -22,6 +22,16 @@ export const TOKENS: TokenMeta[] = [
   { symbol: "ETH", coingeckoId: "ethereum" },
   { symbol: "SUI", coingeckoId: "sui" },
   { symbol: "APT", coingeckoId: "aptos" },
+  { symbol: "TRUMP", coingeckoId: "official-trump" },
+  { symbol: "FARTCOIN", coingeckoId: "fartcoin" },
+  { symbol: "PENGU", coingeckoId: "pudgy-penguins" },
+  { symbol: "PNUT", coingeckoId: "peanut-the-squirrel" },
+  { symbol: "GRASS", coingeckoId: "grass" },
+  { symbol: "DRIFT", coingeckoId: "drift-protocol" },
+  { symbol: "KMNO", coingeckoId: "kamino" },
+  { symbol: "HNT", coingeckoId: "helium" },
+  { symbol: "W", coingeckoId: "wormhole" },
+  { symbol: "TNSR", coingeckoId: "tensor" },
 ];
 
 export const coingeckoIdBySymbol = Object.fromEntries(
