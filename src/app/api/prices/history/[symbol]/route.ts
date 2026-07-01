@@ -1,12 +1,5 @@
 import { NextResponse } from "next/server";
-
-const ID_MAP: Record<string, string> = {
-  sol: "solana",
-  wif: "dogwifcoin",
-  jup: "jupiter-exchange-solana",
-  bonk: "bonk",
-  usdc: "usd-coin",
-};
+import { idMap } from "@/lib/tokens";
 
 export async function GET(
   req: Request,
@@ -17,14 +10,14 @@ export async function GET(
     const { symbol } = await params;
     const s = symbol.toLowerCase();
 
-    if (!ID_MAP[s]) {
+    if (!idMap[s]) {
       return NextResponse.json({ prices: [] });
     }
 
     const { searchParams } = new URL(req.url);
     const days = searchParams.get("days") || "7";
 
-    const url = `https://api.coingecko.com/api/v3/coins/${ID_MAP[s]}/market_chart?vs_currency=usd&days=${days}`;
+    const url = `https://api.coingecko.com/api/v3/coins/${idMap[s]}/market_chart?vs_currency=usd&days=${days}`;
 
     const res = await fetch(url, {
       headers: { accept: "application/json" },
