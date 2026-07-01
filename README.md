@@ -36,10 +36,9 @@ Jupiter Pulse is **read-only** and **informational**.
 - Freshness detection with fallback handling
 - Signal-first UI (clean, minimal, no clutter)
 
-### 🔁 Live Swap Pulse (`/liveswaps`)
-- Real-time whale swaps across Jupiter routes
-- Route dominance (Meteora, Raydium, Orca, Phoenix)
-- Capital flow intelligence, not charts
+### Live Market Movers (`/liveswaps`)
+- Auto-refreshing prices and 24-hour market movement
+- Momentum and large-move monitoring across tracked assets
 
 ### 📡 Market Signals (`/signals`)
 - Smart-money & momentum signals
